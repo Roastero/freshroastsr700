@@ -23,9 +23,9 @@ class TestFreshroastsr700(unittest.TestCase):
         """Verifies _flags is created on initialization properly."""
         self.assertEqual(self.roaster._flags, b'\x63')
 
-    def test_init_var_control(self):
-        """Verifies _control is created on initialization properly."""
-        self.assertEqual(self.roaster._control, b'\x02\x01')
+    def test_init_var_current_state(self):
+        """Verifies _current_state is created on initialization properly."""
+        self.assertEqual(self.roaster._current_state, b'\x02\x01')
 
     def test_init_var_footer(self):
         """Verifies _footer is created on initialization properly."""
@@ -46,3 +46,46 @@ class TestFreshroastsr700(unittest.TestCase):
     def test_init_var_current_temp(self):
         """Verifies current_temp is created on initialization properly."""
         self.assertEqual(self.roaster.current_temp, 150)
+
+    def test_generate_packet(self):
+        """Verifies packet generated is equal to the expected hex value."""
+        packet = self.roaster.generate_packet()
+        self.assertEqual(
+            packet, b'\xaa\xaaatc\x02\x01\x00\x00\x00\x00\x00\xaa\xfa')
+
+    def test_open_packet_not_150(self):
+        """Verifies the supplied hex will set the current temperature to 352."""
+        self.roaster.open_packet(
+            b'\xaa\xaaatc\x02\x01\x00\x00\x00\x01\x60\xaa\xfa')
+        self.assertEqual(self.roaster.current_temp, 352)
+
+    def test_open_packet_before_over_150(self):
+        """Verifies the supplied hex for 65280 will set the current temperature
+        to 150."""
+        self.roaster.open_packet(
+            b'\xaa\xaaatc\x02\x01\x00\x00\x00\xff\x00\xaa\xfa')
+        self.assertEqual(self.roaster.current_temp, 150)
+
+    def test_idle(self):
+        """Verifies that idle appropriatly sets the current state of the
+        roaster."""
+        self.roaster.idle()
+        self.assertEqual(self.roaster.current_state, b'\x02\x01')
+
+    def test_roast(self):
+        """Verifies that roast appropriatly sets the current state of the
+        roaster."""
+        self.roaster.roast()
+        self.assertEqual(self.roaster.current_state, b'\x04\x02')
+
+    def test_cool(self):
+        """Verifies that cool appropriatly sets the current state of the
+        roaster."""
+        self.roaster.cool()
+        self.assertEqual(self.roaster.current_state, b'\x04\x04')
+
+    def test_sleep(self):
+        """Verifies that sleep appropriatly sets the current state of the
+        roaster."""
+        self.roaster.sleep()
+        self.assertEqual(self.roaster.current_state, b'\x08\x01')
