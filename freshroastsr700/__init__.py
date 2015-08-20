@@ -1,27 +1,52 @@
 # -*- coding: utf-8 -*-
 # Roastero, released under GPLv3
 
+from freshroastsr700 import exceptions
+
 
 class freshroastsr700(object):
     """A class to interface with a freshroastsr700 coffee roaster."""
     def __init__(self):
         """Create variables used to send in packets to the roaster. See wiki
         for more information on packet structure and fields."""
-        # Variables that are not meant to be used outside of the class.
         self._header = b'\xAA\xAA'
         self._temp_unit = b'\x61\x74'
         self._flags = b'\x63'
         self._current_state = b'\x02\x01'
+        self._fan_speed = 1
+        self._time_remaining = 0.0
+        self._heat_setting = 0
+        self._current_temp = 150
         self._footer = b'\xAA\xFA'
 
-        # Variables that are meant to be used outside of the class.
-        self.fan_speed = 0
-        self.heat_setting = 0
-        self.time_remaining = 0.0
-        self.current_temp = 150
+    @property
+    def fan_speed(self):
+        """A getter method for fan_speed."""
+        return self._fan_speed
+
+    @fan_speed.setter
+    def fan_speed(self, value):
+        """Verifies the value is between 1 and 9 inclusively."""
+        if not 0 < value < 10:
+            raise exceptions.RoasterValueError
+
+        self._fanspeed = value
+
+    @property
+    def time_remaining(self):
+        """A getter method for time_remaining.""" 
+        return self._time_remaining
+
+    @time_remaining.setter
+    def time_remaining(self, value):
+        """Verifies that the time remaining is between 0.0 and 9.9."""
+        if not 0.0 < value < 10.0:
+            raise exceptions.RoasterValueError
+
+        self._time_remaining = value
 
     def generate_packet(self):
-        """Generates a packat based upon the current class variables. Note that
+        """Generates a packet based upon the current class variables. Note that
         current temperature is not sent, as the original application sent zeros
         to the roaster for the current temperature."""
 
@@ -30,9 +55,10 @@ class freshroastsr700(object):
             self._temp_unit +
             self._flags +
             self._current_state +
-            self.fan_speed.to_bytes(1, byteorder='big') +
-            int(float(self.time_remaining * 10)).to_bytes(1, byteorder='big') +
-            self.heat_setting.to_bytes(1, byteorder='big') +
+            self._fan_speed.to_bytes(1, byteorder='big') +
+            int(float(
+                self._time_remaining * 10)).to_bytes(1, byteorder='big') +
+            self._heat_setting.to_bytes(1, byteorder='big') +
             b'\x00\x00' +
             self._footer)
 
@@ -43,10 +69,10 @@ class freshroastsr700(object):
         accordingly. Since the roaster sends 65280 if the temperature is not
         above 150, this method will set 65280 at 150."""
         if(bytes(packet[10:-2]) == (b'\xff\x00')):
-            self.current_temp = 150
+            self._current_temp = 150
             return
 
-        self.current_temp = int.from_bytes(
+        self._current_temp = int.from_bytes(
             bytes(packet[10:-2]), byteorder='big')
 
     def idle(self):
