@@ -35,7 +35,7 @@ class freshroastsr700(object):
 
     @property
     def time_remaining(self):
-        """A getter method for _time_remaining."""
+        """A getter method for time_remaining.""" 
         return self._time_remaining
 
     @time_remaining.setter
