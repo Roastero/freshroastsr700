@@ -103,6 +103,10 @@ class TestFreshroastsr700(unittest.TestCase):
         with self.assertRaises(exceptions.RoasterValueError):
             self.roaster.time_remaining = 'w'
 
+    def test_setting_var_time_remaining_correct(self):
+        self.roaster.time_remaining = 5.6
+        self.assertEqual(self.roaster.time_remaining, 5.6)
+
     def test_getting_heat_setting(self):
         self.assertEqual(self.roaster.heat_setting, 0)
 
