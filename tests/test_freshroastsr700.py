@@ -125,3 +125,7 @@ class TestFreshroastsr700(unittest.TestCase):
     def test_setting_var_heat_setting_correct(self):
         self.roaster.heat_setting = 3
         self.assertEqual(self.roaster.heat_setting, 3)
+
+    def test_disconnect(self):
+        self.roaster.disconnect()
+        self.assertFalse(self.roaster._cont)
