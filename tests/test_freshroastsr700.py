@@ -29,13 +29,13 @@ class TestFreshroastsr700(unittest.TestCase):
     def test_init_var_fan_speed(self):
         self.assertEqual(self.roaster._fan_speed, 1)
 
-    def test_init_var__heat_setting(self):
+    def test_init_var_heat_setting(self):
         self.assertEqual(self.roaster._heat_setting, 0)
 
-    def test_init_var__time_remaining(self):
+    def test_init_var_time_remaining(self):
         self.assertEqual(self.roaster._time_remaining, 0.0)
 
-    def test_init_var__current_temp(self):
+    def test_init_var_current_temp(self):
         self.assertEqual(self.roaster._current_temp, 150)
 
     def test_generate_packet(self):
@@ -55,19 +55,19 @@ class TestFreshroastsr700(unittest.TestCase):
 
     def test_idle(self):
         self.roaster.idle()
-        self.assertEqual(self.roaster.current_state, b'\x02\x01')
+        self.assertEqual(self.roaster._current_state, b'\x02\x01')
 
     def test_roast(self):
         self.roaster.roast()
-        self.assertEqual(self.roaster.current_state, b'\x04\x02')
+        self.assertEqual(self.roaster._current_state, b'\x04\x02')
 
     def test_cool(self):
         self.roaster.cool()
-        self.assertEqual(self.roaster.current_state, b'\x04\x04')
+        self.assertEqual(self.roaster._current_state, b'\x04\x04')
 
     def test_sleep(self):
         self.roaster.sleep()
-        self.assertEqual(self.roaster.current_state, b'\x08\x01')
+        self.assertEqual(self.roaster._current_state, b'\x08\x01')
 
     def test_getting_var_fan_speed(self):
         self.assertEqual(self.roaster.fan_speed, 1)
@@ -125,3 +125,7 @@ class TestFreshroastsr700(unittest.TestCase):
     def test_setting_var_heat_setting_correct(self):
         self.roaster.heat_setting = 3
         self.assertEqual(self.roaster.heat_setting, 3)
+
+    def test_disconnect(self):
+        self.roaster.disconnect()
+        self.assertFalse(self.roaster._cont)

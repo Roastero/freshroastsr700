@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 # Roastero, released under GPLv3
 
+import time
+import serial
+import threading
+
 from freshroastsr700 import utils
 from freshroastsr700 import exceptions
 
@@ -59,6 +63,56 @@ class freshroastsr700(object):
 
         self._heat_setting = value
 
+    def connect(self):
+        """Creates a serial object, sends initialization packet, and starts
+        main communications loop to the roaster."""
+        port = utils.find_device('1A86:5523')
+        self._ser = serial.Serial(
+            port=port,
+            baudrate=9600,
+            bytesize=8,
+            parity='N',
+            stopbits=1.5,
+            timeout=.25,
+            xonxoff=False,
+            rtscts=False,
+            dsrdtr=False)
+
+        self._header = b'\xAA\x55'
+        self._current_state = b'\x00\x00'
+        s = self.generate_packet()
+        self._ser.write(s)
+        self._header = b'\xAA\xAA'
+        self._current_state = b'\x02\x01'
+
+        self._cont = True
+        self.comm_thread = threading.Thread(target=self.comm)
+        self.comm_thread.start()
+
+    def disconnect(self):
+        """Stops the communication loop to the roaster. Note that this will not
+        actually stop the roaster itself, but will allow the program to exit
+        cleanly."""
+        self._cont = False
+
+    def comm(self):
+        """Main communications loop to the roaster. If the packet is not 14
+        bytes exactly, the packet will not be opened."""
+        while(self._cont):
+            if(self._ser.is_open != True):
+                break;
+
+            r = self._ser.readline()
+            if len(r) == 14:
+                self.open_packet(r)
+
+            s = self.generate_packet()
+            self._ser.write(s)
+
+            time.sleep(.25)
+
+        self._ser.close()
+
     def generate_packet(self):
         """Generates a packet based upon the current class variables. Note that
         current temperature is not sent, as the original application sent zeros
@@ -89,21 +143,21 @@ class freshroastsr700(object):
 
     def idle(self):
         """Sets the current state of the roaster to idle."""
-        self.current_state = b'\x02\x01'
+        self._current_state = b'\x02\x01'
 
     def roast(self):
         """Sets the current state of the roaster to roast and begins
         roasting."""
-        self.current_state = b'\x04\x02'
+        self._current_state = b'\x04\x02'
 
     def cool(self):
         """Sets the current state of the roaster to cool. The roaster expects
         that cool will be run after roast, and will not work as expected if ran
         before."""
-        self.current_state = b'\x04\x04'
+        self._current_state = b'\x04\x04'
 
     def sleep(self):
         """Sets the current state of the roaster to sleep. Different than idle
         in that this will set double dashes on the roaster display rather than
         digits."""
-        self.current_state = b'\x08\x01'
+        self._current_state = b'\x08\x01'
