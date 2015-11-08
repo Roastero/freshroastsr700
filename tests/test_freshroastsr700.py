@@ -55,19 +55,19 @@ class TestFreshroastsr700(unittest.TestCase):
 
     def test_idle(self):
         self.roaster.idle()
-        self.assertEqual(self.roaster.current_state, b'\x02\x01')
+        self.assertEqual(self.roaster._current_state, b'\x02\x01')
 
     def test_roast(self):
         self.roaster.roast()
-        self.assertEqual(self.roaster.current_state, b'\x04\x02')
+        self.assertEqual(self.roaster._current_state, b'\x04\x02')
 
     def test_cool(self):
         self.roaster.cool()
-        self.assertEqual(self.roaster.current_state, b'\x04\x04')
+        self.assertEqual(self.roaster._current_state, b'\x04\x04')
 
     def test_sleep(self):
         self.roaster.sleep()
-        self.assertEqual(self.roaster.current_state, b'\x08\x01')
+        self.assertEqual(self.roaster._current_state, b'\x08\x01')
 
     def test_getting_var_fan_speed(self):
         self.assertEqual(self.roaster.fan_speed, 1)

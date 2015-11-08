@@ -143,21 +143,21 @@ class freshroastsr700(object):
 
     def idle(self):
         """Sets the current state of the roaster to idle."""
-        self.current_state = b'\x02\x01'
+        self._current_state = b'\x02\x01'
 
     def roast(self):
         """Sets the current state of the roaster to roast and begins
         roasting."""
-        self.current_state = b'\x04\x02'
+        self._current_state = b'\x04\x02'
 
     def cool(self):
         """Sets the current state of the roaster to cool. The roaster expects
         that cool will be run after roast, and will not work as expected if ran
         before."""
-        self.current_state = b'\x04\x04'
+        self._current_state = b'\x04\x04'
 
     def sleep(self):
         """Sets the current state of the roaster to sleep. Different than idle
         in that this will set double dashes on the roaster display rather than
         digits."""
-        self.current_state = b'\x08\x01'
+        self._current_state = b'\x08\x01'
