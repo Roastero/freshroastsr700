@@ -29,13 +29,13 @@ class TestFreshroastsr700(unittest.TestCase):
     def test_init_var_fan_speed(self):
         self.assertEqual(self.roaster._fan_speed, 1)
 
-    def test_init_var__heat_setting(self):
+    def test_init_var_heat_setting(self):
         self.assertEqual(self.roaster._heat_setting, 0)
 
-    def test_init_var__time_remaining(self):
+    def test_init_var_time_remaining(self):
         self.assertEqual(self.roaster._time_remaining, 0.0)
 
-    def test_init_var__current_temp(self):
+    def test_init_var_current_temp(self):
         self.assertEqual(self.roaster._current_temp, 150)
 
     def test_generate_packet(self):
