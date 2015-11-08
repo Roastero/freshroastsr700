@@ -16,11 +16,9 @@ def frange(start, stop, step, precision):
 
 
 def find_device(vidpid):
-    """Finds a connected device with the given VID:PID. Returns the serial 
+    """Finds a connected device with the given VID:PID. Returns the serial
     port url."""
-    current_comm_ports = list_ports.comports()
-
-    for port in current_comm_ports:
+    for port in list_ports.comports():
         if re.search(vidpid, port[2], flags=re.IGNORECASE):
             return port[0]
 

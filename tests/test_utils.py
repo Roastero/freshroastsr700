@@ -25,7 +25,6 @@ class TestUtils(unittest.TestCase):
         device_path = utils.find_device('1A86:5523')
         self.assertEqual(device_path, '/dev/tty2')
 
-
     @mock.patch(
         'freshroastsr700.utils.list_ports.comports', 
         return_value=[
