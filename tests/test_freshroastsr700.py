@@ -36,7 +36,7 @@ class TestFreshroastsr700(unittest.TestCase):
         self.assertEqual(self.roaster.time_remaining, 0)
 
     def test_init_var_current_temp(self):
-        self.assertEqual(self.roaster._current_temp, 150)
+        self.assertEqual(self.roaster.current_temp, 150)
 
     def test_generate_packet(self):
         packet = self.roaster.generate_packet()
@@ -51,7 +51,7 @@ class TestFreshroastsr700(unittest.TestCase):
     def test_open_packet_before_over_150(self):
         self.roaster.open_packet(
             b'\xaa\xaaatc\x02\x01\x01\x00\x00\xff\x00\xaa\xfa')
-        self.assertEqual(self.roaster._current_temp, 150)
+        self.assertEqual(self.roaster.current_temp, 150)
 
     def test_idle(self):
         self.roaster.idle()

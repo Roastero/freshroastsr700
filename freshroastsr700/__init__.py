@@ -11,10 +11,12 @@ from freshroastsr700 import exceptions
 
 class freshroastsr700(object):
     """A class to interface with a freshroastsr700 coffee roaster."""
-    def __init__(self, state_transition_func=None):
-        """Create variables used to send in packets to the roaster. State
-        transistion function is used by the timer thread to know what to do
-        next. See wiki for more information on packet structure and fields."""
+    def __init__(self, update_data_func=None, state_transition_func=None):
+        """Create variables used to send in packets to the roaster. The update
+        data function is called when a packet is opened. The state transistion 
+        function is used by the timer thread to know what to do next. See wiki
+        for more information on packet structure and fields."""
+        self.update_data_func = update_data_func
         self.state_transition_func = state_transition_func 
 
         self._header = b'\xAA\xAA'
@@ -23,9 +25,9 @@ class freshroastsr700(object):
         self._current_state = b'\x02\x01'
         self._fan_speed = 1
         self._heat_setting = 0
-        self._current_temp = 150
         self._footer = b'\xAA\xFA'
 
+        self.current_temp = 150
         self.time_remaining = 0
         self.total_time = 0
 
@@ -91,7 +93,8 @@ class freshroastsr700(object):
 
     def comm(self):
         """Main communications loop to the roaster. If the packet is not 14
-        bytes exactly, the packet will not be opened."""
+        bytes exactly, the packet will not be opened. If an update data
+        function is available, it will be called when the packet is opened."""
         while(self._cont):
             if(self._ser.is_open != True):
                 break;
@@ -99,6 +102,8 @@ class freshroastsr700(object):
             r = self._ser.readline()
             if len(r) == 14:
                 self.open_packet(r)
+                if(self.update_data_func is not None):
+                    self.update_data_func(self)
 
             s = self.generate_packet()
             self._ser.write(s)
