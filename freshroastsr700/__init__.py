@@ -11,18 +11,23 @@ from freshroastsr700 import exceptions
 
 class freshroastsr700(object):
     """A class to interface with a freshroastsr700 coffee roaster."""
-    def __init__(self):
-        """Create variables used to send in packets to the roaster. See wiki
-        for more information on packet structure and fields."""
+    def __init__(self, state_transition_func=None):
+        """Create variables used to send in packets to the roaster. State
+        transistion function is used by the timer thread to know what to do
+        next. See wiki for more information on packet structure and fields."""
+        self.state_transition_func = state_transition_func 
+
         self._header = b'\xAA\xAA'
         self._temp_unit = b'\x61\x74'
         self._flags = b'\x63'
         self._current_state = b'\x02\x01'
         self._fan_speed = 1
-        self._time_remaining = 0.0
         self._heat_setting = 0
         self._current_temp = 150
         self._footer = b'\xAA\xFA'
+
+        self.time_remaining = 0
+        self.total_time = 0
 
     @property
     def fan_speed(self):
@@ -36,19 +41,6 @@ class freshroastsr700(object):
             raise exceptions.RoasterValueError
 
         self._fan_speed = value
-
-    @property
-    def time_remaining(self):
-        """A getter method for _time_remaining."""
-        return self._time_remaining
-
-    @time_remaining.setter
-    def time_remaining(self, value):
-        """Verifies that the time remaining is between 0.0 and 9.9."""
-        if value not in utils.frange(0.0, 10, 0.1, 1):
-            raise exceptions.RoasterValueError
-
-        self._time_remaining = value
 
     @property
     def heat_setting(self):
@@ -88,6 +80,8 @@ class freshroastsr700(object):
         self._cont = True
         self.comm_thread = threading.Thread(target=self.comm)
         self.comm_thread.start()
+        self.time_thread = threading.Thread(target=self.timer)
+        self.time_thread.start()
 
     def disconnect(self):
         """Stops the communication loop to the roaster. Note that this will not
@@ -113,17 +107,50 @@ class freshroastsr700(object):
 
         self._ser.close()
 
+    def timer(self):
+        """Timer loop used to keep track of the time while roasting or
+        cooling. If the time remaining reaches zero, the roaster will call the
+        supplied state transistion function or the roaster will be set to
+        the idle state."""
+        while(self._cont):
+            state = self.get_roaster_state()
+            if(state == 'roasting' or state == 'cooling'):
+                time.sleep(1)
+                self.total_time += 1
+                if(self.time_remaining > 0):
+                    self.time_remaining -= 1
+                else:
+                    if(self.state_transition_func is not None):
+                        self.state_transition_func(self, state)
+                    else:
+                        self.idle()
+
+    def get_roaster_state(self):
+        """Returns a string based upon the current state of the roaster. Will
+        raise an exception if the state is unknown."""
+        if(self._current_state == b'\x04\x02'):
+            return 'roasting'
+        elif(self._current_state == b'\x04\x04'):
+            return 'cooling'
+        elif(self._current_state == b'\x02\x01'):
+            return 'idle'
+        elif(self._current_state == b'\x08\x01'):
+            return 'sleeping'
+
+        raise exceptions.RoasterStateError
+
     def generate_packet(self):
         """Generates a packet based upon the current class variables. Note that
         current temperature is not sent, as the original application sent zeros
         to the roaster for the current temperature."""
+        roaster_time = utils.seconds_to_float(self.time_remaining)
         packet = (
             self._header +
             self._temp_unit +
             self._flags +
             self._current_state +
             self.fan_speed.to_bytes(1, byteorder='big') +
-            int(float(self.time_remaining * 10)).to_bytes(1, byteorder='big') +
+            int(float(roaster_time * 10)).to_bytes(1, byteorder='big') +
             self.heat_setting.to_bytes(1, byteorder='big') +
             b'\x00\x00' +
             self._footer)
