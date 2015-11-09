@@ -5,6 +5,9 @@ import time
 import freshroastsr700
 
 
+def update_data(roaster):
+    print("Current Temperature:", roaster.current_temp)
+
 def next_state(roaster, current_state):
     """This is a function that will be called when the time remaining ends. The
     current state can be: roasting, cooling, idle, or sleeping."""
@@ -15,7 +18,7 @@ def next_state(roaster, current_state):
         roaster.idle()
 
 # Create a roaster object.
-roaster = freshroastsr700.freshroastsr700(next_state)
+roaster = freshroastsr700.freshroastsr700(update_data, next_state)
 
 # Conenct to the roaster.
 roaster.connect()
