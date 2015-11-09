@@ -33,3 +33,12 @@ class TestUtils(unittest.TestCase):
     def test_find_device_with_device_unavailable(self, mock_comports):
         with self.assertRaises(exceptions.RoasterLookupError):
             utils.find_device('1234:5678') 
+
+    def test_seconds_to_float(self):
+        self.assertEqual(6.6, utils.seconds_to_float(394))
+
+    def test_seconds_to_float_high(self):
+        self.assertEqual(9.9, utils.seconds_to_float(595))
+
+    def test_seconds_to_float_exact(self):
+        self.assertEqual(9.9, utils.seconds_to_float(594))
