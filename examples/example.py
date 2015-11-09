@@ -6,6 +6,8 @@ import freshroastsr700
 
 
 def update_data(roaster):
+    """This is a function that will be called every time a packet is opened
+    from the roaster."""
     print("Current Temperature:", roaster.current_temp)
 
 def next_state(roaster, current_state):
