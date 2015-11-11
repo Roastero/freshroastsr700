@@ -164,14 +164,16 @@ class freshroastsr700(object):
     def get_roaster_state(self):
         """Returns a string based upon the current state of the roaster. Will
         raise an exception if the state is unknown."""
-        if(self._current_state == b'\x04\x02'):
-            return 'roasting'
+        if(self._current_state == b'\x02\x01'):
+            return 'idle'
         elif(self._current_state == b'\x04\x04'):
             return 'cooling'
-        elif(self._current_state == b'\x02\x01'):
-            return 'idle'
         elif(self._current_state == b'\x08\x01'):
             return 'sleeping'
+        elif(self._current_state == b'\x00\x00'):
+            return 'connecting'
+        elif(self._current_state == b'\x04\x02'):
+            return 'roasting'
 
         raise exceptions.RoasterStateError
 
