@@ -5,13 +5,15 @@ import time
 import serial
 import threading
 
+from freshroastsr700 import pid
 from freshroastsr700 import utils
 from freshroastsr700 import exceptions
 
 
 class freshroastsr700(object):
     """A class to interface with a freshroastsr700 coffee roaster."""
-    def __init__(self, update_data_func=None, state_transition_func=None):
+    def __init__(self, update_data_func=None, state_transition_func=None, 
+            thermostat=False):
         """Create variables used to send in packets to the roaster. The update
         data function is called when a packet is opened. The state transistion 
         function is used by the timer thread to know what to do next. See wiki
@@ -30,6 +32,18 @@ class freshroastsr700(object):
         self.current_temp = 150
         self.time_remaining = 0
         self.total_time = 0
+
+        self._cont = True
+
+        if(thermostat is True):
+            self._p = 4.000
+            self._i = 0.045
+            self._d = 2.200
+            self._pid = pid.PID(self._p, self._i, self._d)
+            self.target_temp = 150
+
+            self.thermostat_thread = threading.Thread(target=self.thermostat)
+            self.thermostat_thread.start()
 
     @property
     def fan_speed(self):
@@ -79,11 +93,28 @@ class freshroastsr700(object):
         self._header = b'\xAA\xAA'
         self._current_state = b'\x02\x01'
 
-        self._cont = True
         self.comm_thread = threading.Thread(target=self.comm)
         self.comm_thread.start()
         self.time_thread = threading.Thread(target=self.timer)
         self.time_thread.start()
+
+    def auto_connect(self):
+        """Starts a thread that will automatically connect to the roaster when
+        it is plugged in."""
+        self.connected = False
+        self.auto_connect_thread = threading.Thread(target=self._auto_connect)
+        self.auto_connect_thread.start()
+
+    def _auto_connect(self):
+        """Attempts to connect to the roaster every quarter of a second."""
+        while(self._cont):
+            try:
+                self.connect()
+                self.connected = True
+            except exceptions.RoasterLookupError:
+                time.sleep(.25)
+            except serial.serialutil.SerialException:
+                time.sleep(.25)
 
     def disconnect(self):
         """Stops the communication loop to the roaster. Note that this will not
@@ -193,3 +224,51 @@ class freshroastsr700(object):
         in that this will set double dashes on the roaster display rather than
         digits."""
         self._current_state = b'\x08\x01'
+
+    def thermostat(self):
+        """Utilizes a software PID controller to set the heat setting on the
+        roaster given the current temperature and a target temperture."""
+        while(self._cont):
+            output = self._pid.update(self.current_temp, self.target_temp)
+
+            if(self.target_temp >= 460):
+                if(output >= 30):
+                    self.heat_setting = 3
+                else:
+                    if(self.heat_setting == 2):
+                        self.heat_setting = 3
+                    else:
+                        self.heat_setting = 2
+            elif(self.target_temp >= 430):
+                if(output >= 30):
+                    self.heat_setting = 3
+                elif(output >= 20):
+                    self.heat_setting = 2
+                else:
+                    if(self.heat_setting == 1):
+                        self.heat_setting = 2
+                    else:
+                        self.heat_setting = 1
+            elif(self.target_temp >= 350):
+                if(output >= 30):
+                    self.heat_setting = 3
+                elif(output >= 20):
+                    self.heat_setting = 2
+                elif(output >= 10):
+                    self.heat_setting = 1
+                else:
+                    if(self.heat_setting == 0):
+                        self.heat_setting = 1
+                    else:
+                        self.heat_setting = 0
+            else:
+                if(output >= 30):
+                    self.heat_setting = 3
+                elif(output >= 20):
+                    self.heat_setting = 2
+                elif(output >= 10):
+                    self.heat_setting = 1
+                else:
+                    self.heat_setting = 0
+
+            time.sleep(.25) 
