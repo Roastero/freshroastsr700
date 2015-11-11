@@ -130,7 +130,11 @@ class TestFreshroastsr700(unittest.TestCase):
         self.roaster._current_state = b'\x08\x01'
         self.assertEqual('sleeping', self.roaster.get_roaster_state())
 
-    def test_get_roaster_state_uknown(self):
+    def test_get_roaster_state_connecting(self):
         self.roaster._current_state = b'\x00\x00'
+        self.assertEqual('connecting', self.roaster.get_roaster_state())
+
+    def test_get_roaster_state_uknown(self):
+        self.roaster._current_state = b'\x13\x41'
         with self.assertRaises(exceptions.RoasterStateError):
             self.roaster.get_roaster_state()
