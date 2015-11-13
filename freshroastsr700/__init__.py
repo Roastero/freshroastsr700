@@ -147,11 +147,16 @@ class freshroastsr700(object):
 
             if len(r) == 14:
                 temp = int.from_bytes(bytes(r[10:-2]), byteorder='big')
-                if(temp > 550 or temp < 150):
+
+                if(temp == 65280):
+                    self.current_temp = 150
+                elif(temp > 550 or temp < 150):
+                    print("here")
                     self._initialize()
                     continue
+                else:
+                    self.current_temp = temp
 
-                self.open_packet(r)
                 if(self.update_data_func is not None):
                     self.update_data_func(self)
 
@@ -210,17 +215,6 @@ class freshroastsr700(object):
             self._footer)
 
         return packet
-
-    def open_packet(self, packet):
-        """Opens a packet received from the roaster and sets the temperature
-        accordingly. Since the roaster sends 65280 if the temperature is not
-        above 150, this method will set 65280 at 150."""
-        if(bytes(packet[10:-2]) == (b'\xff\x00')):
-            self.current_temp = 150
-            return
-
-        self.current_temp = int.from_bytes(
-            bytes(packet[10:-2]), byteorder='big')
 
     def idle(self):
         """Sets the current state of the roaster to idle."""
