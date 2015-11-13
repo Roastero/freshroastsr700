@@ -72,8 +72,7 @@ class freshroastsr700(object):
         self._heat_setting = value
 
     def connect(self):
-        """Creates a serial object, sends initialization packet, and starts
-        main communications loop to the roaster."""
+        """Connects to the roaster and creates communication thread."""
         port = utils.find_device('1A86:5523')
         self._ser = serial.Serial(
             port=port,
@@ -86,17 +85,21 @@ class freshroastsr700(object):
             rtscts=False,
             dsrdtr=False)
 
+        self._initialize()
+
+        self.comm_thread = threading.Thread(target=self.comm)
+        self.comm_thread.start()
+        self.time_thread = threading.Thread(target=self.timer)
+        self.time_thread.start()
+
+    def _initialize(self):
+        """Sends the initialization packet to the roaster."""
         self._header = b'\xAA\x55'
         self._current_state = b'\x00\x00'
         s = self.generate_packet()
         self._ser.write(s)
         self._header = b'\xAA\xAA'
         self._current_state = b'\x02\x01'
-
-        self.comm_thread = threading.Thread(target=self.comm)
-        self.comm_thread.start()
-        self.time_thread = threading.Thread(target=self.timer)
-        self.time_thread.start()
 
     def auto_connect(self):
         """Starts a thread that will automatically connect to the roaster when
@@ -134,6 +137,11 @@ class freshroastsr700(object):
                 return
 
             if len(r) == 14:
+                temp = int.from_bytes(bytes(r[10:-2]), byteorder='big')
+                if(temp > 550 or temp < 150):
+                    self._initialize()
+                    continue
+
                 self.open_packet(r)
                 if(self.update_data_func is not None):
                     self.update_data_func(self)
