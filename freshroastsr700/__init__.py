@@ -151,7 +151,6 @@ class freshroastsr700(object):
                 if(temp == 65280):
                     self.current_temp = 150
                 elif(temp > 550 or temp < 150):
-                    print("here")
                     self._initialize()
                     continue
                 else:
