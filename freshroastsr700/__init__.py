@@ -181,8 +181,8 @@ class freshroastsr700(object):
             return 'connecting'
         elif(self._current_state == b'\x04\x02'):
             return 'roasting'
-
-        raise exceptions.RoasterStateError
+        else:
+            return 'unknown'
 
     def generate_packet(self):
         """Generates a packet based upon the current class variables. Note that

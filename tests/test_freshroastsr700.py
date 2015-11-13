@@ -136,5 +136,4 @@ class TestFreshroastsr700(unittest.TestCase):
 
     def test_get_roaster_state_uknown(self):
         self.roaster._current_state = b'\x13\x41'
-        with self.assertRaises(exceptions.RoasterStateError):
-            self.roaster.get_roaster_state()
+        self.assertEqual('unknown', self.roaster.get_roaster_state())
