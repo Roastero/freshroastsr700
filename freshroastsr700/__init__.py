@@ -111,9 +111,8 @@ class freshroastsr700(object):
             try:
                 self.connect()
                 self.connected = True
+                break
             except exceptions.RoasterLookupError:
-                time.sleep(.25)
-            except serial.serialutil.SerialException:
                 time.sleep(.25)
 
     def disconnect(self):
@@ -127,17 +126,25 @@ class freshroastsr700(object):
         bytes exactly, the packet will not be opened. If an update data
         function is available, it will be called when the packet is opened."""
         while(self._cont):
-            if(self._ser.is_open != True):
-                break;
+            try:
+                r = self._ser.readline()
+            except serial.serialutil.SerialException:
+                self._ser.close()
+                self.auto_connect()
+                return
 
-            r = self._ser.readline()
             if len(r) == 14:
                 self.open_packet(r)
                 if(self.update_data_func is not None):
                     self.update_data_func(self)
 
             s = self.generate_packet()
-            self._ser.write(s)
+            try:
+                self._ser.write(s)
+            except serial.serialutil.SerialException:
+                self._ser.close()
+                self.auto_connect()
+                return
 
             time.sleep(.25)
 
