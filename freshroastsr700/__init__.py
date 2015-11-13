@@ -100,6 +100,7 @@ class freshroastsr700(object):
         self._ser.write(s)
         self._header = b'\xAA\xAA'
         self._current_state = b'\x02\x01'
+        r = self._ser.readline()
 
     def auto_connect(self):
         """Starts a thread that will automatically connect to the roaster when
@@ -129,6 +130,14 @@ class freshroastsr700(object):
         bytes exactly, the packet will not be opened. If an update data
         function is available, it will be called when the packet is opened."""
         while(self._cont):
+            s = self.generate_packet()
+            try:
+                self._ser.write(s)
+            except serial.serialutil.SerialException:
+                self._ser.close()
+                self.auto_connect()
+                return
+
             try:
                 r = self._ser.readline()
             except serial.serialutil.SerialException:
@@ -145,14 +154,6 @@ class freshroastsr700(object):
                 self.open_packet(r)
                 if(self.update_data_func is not None):
                     self.update_data_func(self)
-
-            s = self.generate_packet()
-            try:
-                self._ser.write(s)
-            except serial.serialutil.SerialException:
-                self._ser.close()
-                self.auto_connect()
-                return
 
             time.sleep(.25)
 
