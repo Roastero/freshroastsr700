@@ -100,6 +100,9 @@ class freshroastsr700(object):
         self._ser.write(s)
         self._header = b'\xAA\xAA'
         self._current_state = b'\x02\x01'
+
+        # The readline is used here to get the entirety of the current recipe
+        # currently on the roaster.
         r = self._ser.readline()
 
     def auto_connect(self):
@@ -139,13 +142,13 @@ class freshroastsr700(object):
                 return
 
             try:
-                r = self._ser.readline()
+                r = self._ser.read(14)
             except serial.serialutil.SerialException:
                 self._ser.close()
                 self.auto_connect()
                 return
 
-            if len(r) == 14:
+            if(r[-2:] == self._footer):
                 temp = int.from_bytes(bytes(r[10:-2]), byteorder='big')
 
                 if(temp == 65280):
