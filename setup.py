@@ -13,7 +13,7 @@ with open(os.path.join(here, 'requirements.txt')) as f:
 
 setup(
     name='freshroastsr700',
-    version='0.1',
+    version='0.2',
     description=
         'A module for interfacing with a FreshRoastSR700 coffee roaster.',
     url='https://github.com/Roastero/freshroastsr700',
