@@ -16,7 +16,7 @@ description = 'A module for interfacing with a FreshRoastSR700 coffee roaster.'
 
 setup(
     name='freshroastsr700',
-    version='0.2',
+    version='0.3',
     description=description,
     long_description=long_description,
     url='https://github.com/Roastero/freshroastsr700',
