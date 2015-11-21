@@ -12,14 +12,14 @@ from freshroastsr700 import exceptions
 
 class freshroastsr700(object):
     """A class to interface with a freshroastsr700 coffee roaster."""
-    def __init__(self, update_data_func=None, state_transition_func=None, 
-            thermostat=False):
+    def __init__(self, update_data_func=None, state_transition_func=None,
+                 thermostat=False):
         """Create variables used to send in packets to the roaster. The update
-        data function is called when a packet is opened. The state transistion 
+        data function is called when a packet is opened. The state transistion
         function is used by the timer thread to know what to do next. See wiki
         for more information on packet structure and fields."""
         self.update_data_func = update_data_func
-        self.state_transition_func = state_transition_func 
+        self.state_transition_func = state_transition_func
 
         self._header = b'\xAA\xAA'
         self._temp_unit = b'\x61\x74'
@@ -104,6 +104,7 @@ class freshroastsr700(object):
         # The readline is used here to get the entirety of the current recipe
         # currently on the roaster.
         r = self._ser.readline()
+        return r
 
     def auto_connect(self):
         """Starts a thread that will automatically connect to the roaster when
@@ -285,4 +286,4 @@ class freshroastsr700(object):
                 else:
                     self.heat_setting = 0
 
-            time.sleep(.25) 
+            time.sleep(.25)

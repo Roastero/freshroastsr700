@@ -7,8 +7,8 @@
 
 class PID(object):
     """Discrete PID control."""
-    def __init__(self, P, I, D, Derivator=0, Integrator=0, Integrator_max=4, 
-            Integrator_min=-4):
+    def __init__(self, P, I, D, Derivator=0, Integrator=0, Integrator_max=4,
+                 Integrator_min=-4):
 
         self.Kp = P
         self.Ki = I
@@ -19,7 +19,7 @@ class PID(object):
         self.Integrator_min = Integrator_min
 
         self.targetTemp = 0
-        self.error=0.0
+        self.error = 0.0
 
     def update(self, currentTemp, targetTemp):
         """Calculate PID output value for given reference input and feedback."""
@@ -27,15 +27,15 @@ class PID(object):
         self.error = targetTemp - currentTemp
 
         self.P_value = self.Kp * self.error
-        self.D_value = self.Kd * ( self.error - self.Derivator)
+        self.D_value = self.Kd * (self.error - self.Derivator)
         self.Derivator = self.error
 
         self.Integrator = self.Integrator + self.error
 
         if self.Integrator > self.Integrator_max:
-        	self.Integrator = self.Integrator_max
+            self.Integrator = self.Integrator_max
         elif self.Integrator < self.Integrator_min:
-        	self.Integrator = self.Integrator_min
+            self.Integrator = self.Integrator_min
 
         self.I_value = self.Integrator * self.Ki
 
@@ -43,11 +43,11 @@ class PID(object):
 
         return(output)
 
-    def setPoint(self,targetTemp):
+    def setPoint(self, targetTemp):
         """Initilize the setpoint of PID."""
         self.targetTemp = targetTemp
-        self.Integrator=0
-        self.Derivator=0
+        self.Integrator = 0
+        self.Derivator = 0
 
     def setIntegrator(self, Integrator):
         self.Integrator = Integrator
@@ -55,14 +55,14 @@ class PID(object):
     def setDerivator(self, Derivator):
         self.Derivator = Derivator
 
-    def setKp(self,P):
-        self.Kp=P
+    def setKp(self, P):
+        self.Kp = P
 
-    def setKi(self,I):
-        self.Ki=I
+    def setKi(self, I):
+        self.Ki = I
 
-    def setKd(self,D):
-        self.Kd=D
+    def setKd(self, D):
+        self.Kd = D
 
     def getPoint(self):
         return self.targetTemp

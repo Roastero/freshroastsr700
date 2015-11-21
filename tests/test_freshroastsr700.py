@@ -112,7 +112,7 @@ class TestFreshroastsr700(unittest.TestCase):
         self.roaster._current_state = b'\x04\x04'
         self.assertEqual('cooling', self.roaster.get_roaster_state())
 
-    def test_get_roaster_state_roasting(self):
+    def test_get_roaster_state_idle(self):
         self.roaster._current_state = b'\x02\x01'
         self.assertEqual('idle', self.roaster.get_roaster_state())
 
