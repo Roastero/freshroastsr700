@@ -161,7 +161,7 @@ class freshroastsr700(object):
                     self.current_temp = temp
 
                 if(self.update_data_func is not None):
-                    self.update_data_func(self)
+                    self.update_data_func()
 
             time.sleep(.25)
 
@@ -181,7 +181,7 @@ class freshroastsr700(object):
                     self.time_remaining -= 1
                 else:
                     if(self.state_transition_func is not None):
-                        self.state_transition_func(self, state)
+                        self.state_transition_func()
                     else:
                         self.idle()
 
