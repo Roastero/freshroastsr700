@@ -5,44 +5,50 @@ import time
 import freshroastsr700
 
 
-def update_data(roaster):
-    """This is a function that will be called every time a packet is opened
-    from the roaster."""
-    print("Current Temperature:", roaster.current_temp)
+class Roaster(object):
+    def __init__(self):
+        """Creates a freshroastsr700 object passing in methods included in this
+        class."""
+        self.roaster = freshroastsr700.freshroastsr700(
+            self.update_data, self.next_state, thermostat=True)
 
+    def update_data(self):
+        """This is a method that will be called every time a packet is opened
+        from the roaster."""
+        print("Current Temperature:", self.roaster.current_temp)
 
-def next_state(roaster, current_state):
-    """This is a function that will be called when the time remaining ends. The
-    current state can be: roasting, cooling, idle, or sleeping."""
-    if(current_state == 'roasting'):
-        roaster.time_remaining = 20
-        roaster.cool()
-    elif(current_state == 'cooling'):
-        roaster.idle()
+    def next_state(self):
+        """This is a method that will be called when the time remaining ends.
+        The current state can be: roasting, cooling, idle, sleeping, connecting,
+        or unkown."""
+        if(self.roaster.get_roaster_state() == 'roasting'):
+            self.roaster.time_remaining = 20
+            self.roaster.cool()
+        elif(self.roaster.get_roaster_state() == 'cooling'):
+            self.roaster.idle()
 
 
 # Create a roaster object.
-roaster = freshroastsr700.freshroastsr700(
-    update_data, next_state, thermostat=True)
+r = Roaster()
 
 # Conenct to the roaster.
-roaster.auto_connect()
+r.roaster.auto_connect()
 
 # Wait for the roaster to be connected.
-while(roaster.connected is False):
+while(r.roaster.connected is False):
     print("Please connect your roaster...")
     time.sleep(1)
 
 # Set variables.
-roaster.target_temp = 320
-roaster.fan_speed = 9
-roaster.time_remaining = 40
+r.roaster.target_temp = 320
+r.roaster.fan_speed = 9
+r.roaster.time_remaining = 40
 
 # Begin roasting.
-roaster.roast()
+r.roaster.roast()
 
 # This ensures the example script does not end before the roast.
 time.sleep(80)
 
 # Disconnect from the roaster.
-roaster.disconnect()
+r.roaster.disconnect()
