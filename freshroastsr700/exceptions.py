@@ -12,7 +12,7 @@ class RoasterValueError(RoasterError):
 
 
 class RoasterLookupError(RoasterError):
-    """Raised when a device is not able to be found from the connected 
+    """Raised when a device is not able to be found from the connected
     devices."""
 
 

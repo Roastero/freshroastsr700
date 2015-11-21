@@ -1,15 +1,7 @@
 language: python
-python:
-  - "3.3"
-  - "3.4"
-  - "3.5"
-# command to install dependencies
 install:
-  - "pip install ."
-  - "pip install -r requirements.txt"
-  - "pip install coveralls"
-# command to run tests
+  - pip install tox 
 script:
-  - "nosetests --with-coverage --cover-package=freshroastsr700"
+  - tox
 after_success:
-  - "coveralls"
+  - coveralls
