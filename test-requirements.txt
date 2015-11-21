@@ -1,2 +1,4 @@
+tox
 nose
 flake8
+coveralls
