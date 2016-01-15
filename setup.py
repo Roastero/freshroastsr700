@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
-# Roastero, released under GPLv3
+# Copyright (c) 2015-2016 Mark Spicer
+# Made available under the MIT license.
 
 import os
 from setuptools import setup
 from setuptools import find_packages
+
+from freshroastsr700 import __version__
 
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -16,12 +19,12 @@ description = 'A module for interfacing with a FreshRoastSR700 coffee roaster.'
 
 setup(
     name='freshroastsr700',
-    version='0.3',
+    version=__version__,
     description=description,
     long_description=long_description,
     url='https://github.com/Roastero/freshroastsr700',
-    author='Roastero',
-    author_email='admin@roastero.com',
-    license='GPLv3',
+    author='Mark Spicer',
+    author_email='mds4680@rit.edu',
+    license='MIT',
     packages=find_packages(),
     install_requires=requires)

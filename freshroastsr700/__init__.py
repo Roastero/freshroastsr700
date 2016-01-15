@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Roastero, released under GPLv3
+# Copyright (c) 2015-2016 Mark Spicer
+# Made available under the MIT license.
 
 import time
 import serial
@@ -8,6 +9,11 @@ import threading
 from freshroastsr700 import pid
 from freshroastsr700 import utils
 from freshroastsr700 import exceptions
+
+
+# Set version.
+version_info = (0, 0, 3)
+__version__ = ".".join([str(v) for v in version_info])
 
 
 class freshroastsr700(object):
