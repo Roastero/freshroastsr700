@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Roastero, released under GPLv3
+# Copyright (c) 2015-2016 Mark Spicer
+# Made available under the MIT license.
 
 import unittest
 from unittest import mock

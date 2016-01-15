@@ -2,7 +2,7 @@
 # Author: cnr437@gmail.com
 # Code URL: http://code.activestate.com/recipes/577231-discrete-pid-controller/
 # License: MIT
-# Modified by Roastero.
+# Modified by Openroast.
 
 
 class PID(object):
