@@ -11,11 +11,6 @@ from freshroastsr700 import utils
 from freshroastsr700 import exceptions
 
 
-# Set version.
-version_info = (0, 0, 3)
-__version__ = ".".join([str(v) for v in version_info])
-
-
 class freshroastsr700(object):
     """A class to interface with a freshroastsr700 coffee roaster."""
     def __init__(self, update_data_func=None, state_transition_func=None,
