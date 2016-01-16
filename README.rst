@@ -13,7 +13,8 @@ A Python module to control a FreshRoastSR700 coffee roaster.
 
 Install
 -------
-.. code-block:: bash
+::
+
     pip install freshroastsr700
 
 Documentation
@@ -23,7 +24,8 @@ communication protocol can be found at http://freshroastsr700.readthedocs.org
 
 Develop
 -------
-.. code-block:: bash
+::
+
     git clone git@github.com:Roastero/freshroastsr700.git
     cd freshroastsr700
     virtualenv venv -p python3
@@ -35,6 +37,7 @@ Tests
 This module uses tox to run tests and a code linter. Run the commands below in 
 the base project directory to install everything needed and run tests on the 
 freshroastsr700 module.
-.. code-block:: bash
+::
+
     pip install -r test-requirements.txt
     tox
