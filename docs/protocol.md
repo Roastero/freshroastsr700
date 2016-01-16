@@ -1,10 +1,4 @@
-# FreshRoastSR700
-[![Build Status](https://travis-ci.org/Roastero/freshroastsr700.svg?branch=master)](https://travis-ci.org/Roastero/freshroastsr700)
-[![Coverage Status](https://coveralls.io/repos/Roastero/freshroastsr700/badge.svg?branch=master&service=github)](https://coveralls.io/github/Roastero/freshroastsr700?branch=master)
-
-A python package to interface with a FreshRoastSR700 coffee roaster.
-
-##  FreshRoastSR700 Communication Protocol
+#  FreshRoastSR700 Communication Protocol
 All of the communication between the FreshRoastSR700 and the computer are 
 happening over serial. The device contains a USB to serial adapter that uses 
 the CH341 chipset. With this, it creates a virtual serial port that the program 
