@@ -2,3 +2,6 @@ tox
 nose
 flake8
 coveralls
+sphinx
+sphinx-autobuild
+sphinx_rtd_theme

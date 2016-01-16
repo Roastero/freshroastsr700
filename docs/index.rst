@@ -1,6 +1,10 @@
-=============================
-FreshRoastSR700 Documentation
-=============================
+.. freshroastsr700 documentation master file, created by
+   sphinx-quickstart on Sat Jan 16 13:46:41 2016.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+Welcome to freshroastsr700's documentation!
+===========================================
 .. image:: https://travis-ci.org/Roastero/freshroastsr700.svg?branch=master
     :target: https://travis-ci.org/Roastero/freshroastsr700
 .. image:: https://coveralls.io/repos/Roastero/freshroastsr700/badge.svg?branch=master&service=github
@@ -11,7 +15,8 @@ FreshRoastSR700 Documentation
 
 A Python module to control a FreshRoastSR700 coffee roaster.
 
-Table of contents:
+Contents
+========
 
 .. toctree::
     :maxdepth: 4
@@ -20,6 +25,9 @@ Table of contents:
     installation
     contributing
     freshroastsr700
+    releases
+
+
 
 Indices and tables
 ==================
@@ -27,3 +35,4 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
