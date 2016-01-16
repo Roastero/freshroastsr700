@@ -9,18 +9,17 @@ FreshRoastSR700
     :target: http://freshroastsr700.readthedocs.org/en/latest/?badge=latest
     :alt: Documentation Status
 
-A Python module to control a FreshRoastSR700 coffee roaster.
+A Python module to control a FreshRoastSR700 coffee roaster. Complete code 
+documentation and a breakdown of the FreshroastSR700 communication protocol 
+can be found at freshroastsr700.readthedocs.org_
+
+.. _freshroastsr700.readthedocs.org: http://freshroastsr700.readthedocs.org
 
 Install
 -------
 ::
 
     pip install freshroastsr700
-
-Documentation
--------------
-Complete code documentation and a breakdown of the FreshroastSR700 
-communication protocol can be found at http://freshroastsr700.readthedocs.org
 
 Develop
 -------
