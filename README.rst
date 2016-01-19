@@ -11,32 +11,13 @@ FreshRoastSR700
 
 A Python module to control a FreshRoastSR700 coffee roaster. Complete code 
 documentation and a breakdown of the FreshroastSR700 communication protocol 
-can be found at freshroastsr700.readthedocs.org_
+can be found at freshroastsr700.readthedocs.org_. The Fresh Roast SR700 can be 
+purchased directly from the manufacturer at homeroastingsupplies.com_. The 
+latest release of this module can be installed by running:
 
-.. _freshroastsr700.readthedocs.org: http://freshroastsr700.readthedocs.org
-
-Install
--------
 ::
 
     pip install freshroastsr700
 
-Develop
--------
-::
-
-    git clone git@github.com:Roastero/freshroastsr700.git
-    cd freshroastsr700
-    virtualenv venv -p python3
-    source venv/bin/activate
-    python setup.py develop
-
-Tests
------
-This module uses tox to run tests and a code linter. Run the commands below in 
-the base project directory to install everything needed and run tests on the 
-freshroastsr700 module.
-::
-
-    pip install -r test-requirements.txt
-    tox
+.. _freshroastsr700.readthedocs.org: http://freshroastsr700.readthedocs.org
+.. _homeroastingsupplies.com: http://homeroastingsupplies.com/product/fresh-roast-sr700/
