@@ -220,6 +220,8 @@ class freshroastsr700(object):
                         self.state_transition_func()
                     else:
                         self.idle()
+            else:
+                time.sleep(0.01)
 
     def get_roaster_state(self):
         """Returns a string based upon the current state of the roaster. Will
