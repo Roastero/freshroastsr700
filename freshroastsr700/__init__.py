@@ -5,6 +5,7 @@
 import time
 import serial
 import threading
+import logging
 import multiprocessing as mp
 from multiprocessing import sharedctypes
 
@@ -116,7 +117,7 @@ class freshroastsr700(object):
             bytesize=8,
             parity='N',
             stopbits=1.5,
-            timeout=.25,
+            timeout=0.25,
             xonxoff=False,
             rtscts=False,
             dsrdtr=False)
@@ -137,10 +138,49 @@ class freshroastsr700(object):
         self._header.value = b'\xAA\xAA'
         self._current_state.value = b'\x02\x01'
 
-        # The readline is used here to get the entirety of the current recipe
-        # currently on the roaster.
-        r = self._ser.readline()
-        return r
+        return self._read_existing_recipe()
+
+    def _write_to_device(self):
+        success = False
+        try:
+            self._ser.write(self.generate_packet())
+            success = True
+        except serial.serialutil.SerialException:
+            logging.error('caught serial exception writing')
+            self._ser.close()
+            self.auto_connect()
+        return success
+
+    def _read_from_device(self):
+        r = []
+        footer_reached = False
+        while len(r) < 14 and footer_reached == False:
+            r.append(self._ser.read(1))
+            if len(r) >= 2 and b''.join(r)[-2:] == self._footer:
+                footer_reached = True
+        return b''.join(r)
+
+    def _read_existing_recipe(self):
+        existing_recipe = []
+        end_of_recipe = False
+        while not end_of_recipe:
+            bytes_waiting = self._ser.in_waiting
+            if bytes_waiting < 14:
+                # still need to write to device every .25sec it seems
+                time.sleep(0.25)
+                self._write_to_device()
+            else:
+                while (bytes_waiting // 14) > 0:
+                    r = self._read_from_device()
+                    bytes_waiting = self._ser.in_waiting
+                    if len(r) < 14:
+                        logging.warn('short packet length')
+                    else:
+                        existing_recipe.append(r)
+                        if r[4:5] == b'\xAF':
+                            end_of_recipe = True
+                        continue
+        return existing_recipe
 
     def auto_connect(self):
         """Starts a thread that will automatically connect to the roaster when
@@ -165,43 +205,53 @@ class freshroastsr700(object):
         cleanly."""
         self._cont.value = 0 
 
+    def _now(self):
+        return int(time.time() * 1000)
+
     def comm(self):
         """Main communications loop to the roaster. If the packet is not 14
         bytes exactly, the packet will not be opened. If an update data
         function is available, it will be called when the packet is opened."""
         while(self._cont.value):
-            s = self.generate_packet()
-            try:
-                self._ser.write(s)
-            except serial.serialutil.SerialException:
-                self._ser.close()
-                self.auto_connect()
-                return
+            start = self._now()
+            if self._write_to_device() == False:
+                continue
 
-            try:
-                r = self._ser.read(14)
-            except serial.serialutil.SerialException:
-                self._ser.close()
-                self.auto_connect()
-                return
+            bytes_waiting = self._ser.in_waiting
+            if bytes_waiting >= 14:
+                loops = bytes_waiting // 14
+                for n in range(0, loops):
+                    r = self._read_from_device()
+                    if len(r) != 14:
+                        logging.warn('unexpected length [{}] of data: {}'.format(len(r), r))
+                    else:
+                        logging.info('data read: {}'.format(r))
+                        if(r[-2:] == self._footer):
+                            self._process_response(r)
+                        else:
+                            logging.warn('expected footer not present')
 
-            if(r[-2:] == self._footer):
-                temp = int.from_bytes(bytes(r[10:-2]), byteorder='big')
-
-                if(temp == 65280):
-                    self.current_temp = 150
-                elif(temp > 550 or temp < 150):
-                    self._initialize()
-                    continue
-                else:
-                    self.current_temp = temp
-
-                if(self.update_data_func is not None):
-                    self.update_data_func()
-
-            time.sleep(.25)
+            total_ms = self._now() - start
+            sleep_duration = 0.25 - (total_ms / 1000)
+            if sleep_duration > 0:
+                time.sleep(sleep_duration)
 
         self._ser.close()
+
+    def _process_response(self, r):
+        temp = int.from_bytes(bytes(r[10:-2]), byteorder='big')
+
+        if(temp == 65280):
+            self.current_temp = 150
+        elif(temp > 550 or temp < 150):
+            logging.warn('temperature out of range: reinitializing...')
+            self._initialize()
+            return
+        else:
+            self.current_temp = temp
+
+        if(self.update_data_func is not None):
+            self.update_data_func()
 
     def timer(self):
         """Timer loop used to keep track of the time while roasting or
