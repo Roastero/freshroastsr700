@@ -285,7 +285,8 @@ class freshroastsr700(object):
             return 'cooling'
         elif(value == b'\x08\x01'):
             return 'sleeping'
-        elif(value == b'\x00\x00'):
+        # handle null bytes as empty strings
+        elif(value == b'\x00\x00' or value == b''):
             return 'connecting'
         elif(value == b'\x04\x02'):
             return 'roasting'
