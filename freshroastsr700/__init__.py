@@ -126,7 +126,7 @@ class freshroastsr700(object):
 
         self.comm_process = mp.Process(target=self.comm)
         self.comm_process.start()
-        self.time_process= mp.Process(target=self.timer)
+        self.time_process = mp.Process(target=self.timer)
         self.time_process.start()
 
     def _initialize(self):
@@ -154,7 +154,7 @@ class freshroastsr700(object):
     def _read_from_device(self):
         r = []
         footer_reached = False
-        while len(r) < 14 and footer_reached == False:
+        while len(r) < 14 and footer_reached is False:
             r.append(self._ser.read(1))
             if len(r) >= 2 and b''.join(r)[-2:] == self._footer:
                 footer_reached = True
@@ -203,7 +203,7 @@ class freshroastsr700(object):
         """Stops the communication loop to the roaster. Note that this will not
         actually stop the roaster itself, but will allow the program to exit
         cleanly."""
-        self._cont.value = 0 
+        self._cont.value = 0
 
     def _now(self):
         return int(time.time() * 1000)
@@ -214,7 +214,7 @@ class freshroastsr700(object):
         function is available, it will be called when the packet is opened."""
         while(self._cont.value):
             start = self._now()
-            if self._write_to_device() == False:
+            if self._write_to_device() is False:
                 continue
 
             bytes_waiting = self._ser.in_waiting
@@ -223,7 +223,9 @@ class freshroastsr700(object):
                 for n in range(0, loops):
                     r = self._read_from_device()
                     if len(r) != 14:
-                        logging.warn('unexpected length [{}] of data: {}'.format(len(r), r))
+                        logging.warn(
+                                'unexpected length [{}] of data: {}'
+                                .format(len(r), r))
                     else:
                         logging.info('data read: {}'.format(r))
                         if(r[-2:] == self._footer):
