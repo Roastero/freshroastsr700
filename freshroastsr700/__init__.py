@@ -76,7 +76,7 @@ class freshroastsr700(object):
 
     @target_temp.setter
     def target_temp(self, value):
-        if value not in range(150, 550):
+        if value not in range(150, 551):
             raise exceptions.RoasterValueError
 
         self._target_temp.value = value
@@ -87,7 +87,7 @@ class freshroastsr700(object):
 
     @current_temp.setter
     def current_temp(self, value):
-        if value not in range(150, 550):
+        if value not in range(150, 551):
             raise exceptions.RoasterValueError
 
         self._current_temp.value = value
