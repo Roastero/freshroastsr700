@@ -3,8 +3,10 @@
 # Made available under the MIT license.
 
 import unittest
-from unittest import mock
-
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 from freshroastsr700 import utils
 from freshroastsr700 import exceptions
 
