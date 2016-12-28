@@ -30,6 +30,6 @@ def seconds_to_float(time_in_seconds):
     """Converts seconds to float rounded to one digit. Will cap the float at
     9.9 or 594 seconds."""
     if(time_in_seconds <= 594):
-        return round((time_in_seconds / 60), 1)
+        return round((float(time_in_seconds) / 60.0), 1)
 
     return 9.9

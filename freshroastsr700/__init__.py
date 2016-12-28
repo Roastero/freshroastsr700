@@ -8,6 +8,8 @@ import threading
 import logging
 import multiprocessing as mp
 from multiprocessing import sharedctypes
+import struct
+import binascii
 
 from freshroastsr700 import pid
 from freshroastsr700 import utils
@@ -143,7 +145,9 @@ class freshroastsr700(object):
     def _write_to_device(self):
         success = False
         try:
-            self._ser.write(self.generate_packet())
+            packet = self.generate_packet()
+            logging.debug('WR: ' + str(binascii.hexlify(packet)))
+            self._ser.write(packet)
             success = True
         except serial.serialutil.SerialException:
             logging.error('caught serial exception writing')
@@ -158,6 +162,7 @@ class freshroastsr700(object):
             r.append(self._ser.read(1))
             if len(r) >= 2 and b''.join(r)[-2:] == self._footer:
                 footer_reached = True
+        logging.debug('RD: ' + str(binascii.hexlify(b''.join(r))))
         return b''.join(r)
 
     def _read_existing_recipe(self):
@@ -177,7 +182,7 @@ class freshroastsr700(object):
                         logging.warn('short packet length')
                     else:
                         existing_recipe.append(r)
-                        if r[4:5] == b'\xAF':
+                        if r[4:5] == b'\xAF' or r[4:5] == b'\x00':
                             end_of_recipe = True
                         continue
         return existing_recipe
@@ -227,7 +232,6 @@ class freshroastsr700(object):
                                 'unexpected length [{}] of data: {}'
                                 .format(len(r), r))
                     else:
-                        logging.info('data read: {}'.format(r))
                         if(r[-2:] == self._footer):
                             self._process_response(r)
                         else:
@@ -241,8 +245,7 @@ class freshroastsr700(object):
         self._ser.close()
 
     def _process_response(self, r):
-        temp = int.from_bytes(bytes(r[10:-2]), byteorder='big')
-
+        temp = struct.unpack(">H", r[10:-2])[0]
         if(temp == 65280):
             self.current_temp = 150
         elif(temp > 550 or temp < 150):
@@ -297,15 +300,15 @@ class freshroastsr700(object):
         """Generates a packet based upon the current class variables. Note that
         current temperature is not sent, as the original application sent zeros
         to the roaster for the current temperature."""
-        roaster_time = utils.seconds_to_float(self.time_remaining)
+        roaster_time = utils.seconds_to_float(self._time_remaining.value)
         packet = (
             self._header.value +
             self._temp_unit.value +
             self._flags.value +
             self._current_state.value +
-            self.fan_speed.to_bytes(1, byteorder='big') +
-            int(float(roaster_time * 10)).to_bytes(1, byteorder='big') +
-            self.heat_setting.to_bytes(1, byteorder='big') +
+            struct.pack(">B", self._fan_speed.value) +
+            struct.pack(">B", int(round(roaster_time * 10.0))) +
+            struct.pack(">B", self._heat_setting.value) +
             b'\x00\x00' +
             self._footer)
 
