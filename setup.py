@@ -13,7 +13,7 @@ with open(os.path.join(here, 'README.rst')) as f:
 
 setup(
     name='freshroastsr700',
-    version='0.1.0',
+    version='0.1.1',
     description='A Python module to control a FreshRoastSR700 coffee roaster.',
     long_description=long_description,
     url='https://github.com/Roastero/freshroastsr700',
