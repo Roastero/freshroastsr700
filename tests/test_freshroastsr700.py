@@ -10,7 +10,7 @@ from freshroastsr700 import exceptions
 
 class TestFreshroastsr700(unittest.TestCase):
     def setUp(self):
-        self.roaster = freshroastsr700.freshroastsr700()
+        self.roaster = freshroastsr700.freshroastsr700(thermostat=True)
 
     def test_init_var_header(self):
         self.assertEqual(self.roaster._header.value, b'\xAA\xAA')
@@ -128,3 +128,52 @@ class TestFreshroastsr700(unittest.TestCase):
     def test_get_roaster_state_uknown(self):
         self.roaster._current_state.value = b'\x13\x41'
         self.assertEqual('unknown', self.roaster.get_roaster_state())
+
+    def test_heat_controller_4_segment_output(self):
+        heater = freshroastsr700.heat_controller(number_of_segments=4)
+        heater.heat_level = 0
+        self.assertFalse(heater.about_to_rollover())
+        self.assertFalse(heater.generate_bangbang_output())
+        self.assertFalse(heater.about_to_rollover())
+        self.assertFalse(heater.generate_bangbang_output())
+        self.assertFalse(heater.about_to_rollover())
+        self.assertFalse(heater.generate_bangbang_output())
+        self.assertFalse(heater.about_to_rollover())
+        self.assertFalse(heater.generate_bangbang_output())
+        self.assertTrue(heater.about_to_rollover())
+        heater.heat_level = 1
+        self.assertTrue(heater.generate_bangbang_output())
+        self.assertFalse(heater.about_to_rollover())
+        self.assertFalse(heater.generate_bangbang_output())
+        self.assertFalse(heater.about_to_rollover())
+        self.assertFalse(heater.generate_bangbang_output())
+        self.assertFalse(heater.about_to_rollover())
+        self.assertFalse(heater.generate_bangbang_output())
+        self.assertTrue(heater.about_to_rollover())
+        heater.heat_level = 2
+        self.assertTrue(heater.generate_bangbang_output())
+        self.assertFalse(heater.about_to_rollover())
+        self.assertFalse(heater.generate_bangbang_output())
+        self.assertFalse(heater.about_to_rollover())
+        self.assertTrue(heater.generate_bangbang_output())
+        self.assertFalse(heater.about_to_rollover())
+        self.assertFalse(heater.generate_bangbang_output())
+        self.assertTrue(heater.about_to_rollover())
+        heater.heat_level = 3
+        self.assertTrue(heater.generate_bangbang_output())
+        self.assertFalse(heater.about_to_rollover())
+        self.assertTrue(heater.generate_bangbang_output())
+        self.assertFalse(heater.about_to_rollover())
+        self.assertTrue(heater.generate_bangbang_output())
+        self.assertFalse(heater.about_to_rollover())
+        self.assertFalse(heater.generate_bangbang_output())
+        self.assertTrue(heater.about_to_rollover())
+        heater.heat_level = 4
+        self.assertTrue(heater.generate_bangbang_output())
+        self.assertFalse(heater.about_to_rollover())
+        self.assertTrue(heater.generate_bangbang_output())
+        self.assertFalse(heater.about_to_rollover())
+        self.assertTrue(heater.generate_bangbang_output())
+        self.assertFalse(heater.about_to_rollover())
+        self.assertTrue(heater.generate_bangbang_output())
+        self.assertTrue(heater.about_to_rollover())
