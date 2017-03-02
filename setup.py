@@ -11,9 +11,15 @@ here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, 'README.rst')) as f:
     long_description = f.read()
 
+# import version number
+version = {}
+with open("./openroast/version.py") as fp:
+    exec(fp.read(), version)
+# later on we use: version['__version__']
+
 setup(
     name='freshroastsr700',
-    version='0.1.1',
+    version=version['__version__'],
     description='A Python module to control a FreshRoastSR700 coffee roaster.',
     long_description=long_description,
     url='https://github.com/Roastero/freshroastsr700',

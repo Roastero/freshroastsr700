@@ -29,8 +29,8 @@ class freshroastsr700(object):
         data function is called when a packet is opened. The state transistion
         function is used by the timer thread to know what to do next. See wiki
         for more information on packet structure and fields."""
-        self.update_data_func = update_data_func
-        self.state_transition_func = state_transition_func
+        self.create_update_data_system(update_data_func)
+        self.create_state_transition_system(state_transition_func)
 
         self._header = sharedctypes.Array('c', b'\xAA\xAA')
         self._temp_unit = sharedctypes.Array('c', b'\x61\x74')
@@ -62,6 +62,53 @@ class freshroastsr700(object):
         self.LOOKING_FOR_HEADER_2 = 1
         self.PACKET_DATA = 2
         self.LOOKING_FOR_FOOTER_2 = 3
+
+        # initialize to 'not connected'
+        self._connected = sharedctypes.Value('i', 0)
+
+    def create_update_data_system(
+            self, update_data_func, setFunc=True, createThread=False):
+        # these callbacks cannot be called from another process in Windows.
+        # Therefore, spawn a thread belonging to the calling process
+        # instead.
+        # the comm and timer processes will set events that the threads
+        # will listen for to initiate the callbacks
+        if setFunc:
+            self.update_data_func = update_data_func
+            self.update_data_event = mp.Event()
+        if self.update_data_func is not None:
+            if createThread:
+                self.update_data_thread = threading.Thread(
+                    name='sr700_update_data',
+                    target=self.update_data_run,
+                    args=(self.update_data_event,),
+                    daemon=True
+                    )
+        else:
+            self.update_data_event = None
+            self.update_data_thread = None
+
+    def create_state_transition_system(
+            self, state_transition_func, setFunc=True, createThread=False):
+        # these callbacks cannot be called from another process in Windows.
+        # Therefore, spawn a thread belonging to the calling process
+        # instead.
+        # the comm and timer processes will set events that the threads
+        # will listen for to initiate the callbacks
+        if setFunc:
+            self.state_transition_func = state_transition_func
+            self.state_transition_event = mp.Event()
+        if self.state_transition_func is not None:
+            if createThread:
+                self.state_transition_thread = threading.Thread(
+                    name='sr700_state_transition',
+                    target=self.state_transition_run,
+                    args=(self.state_transition_event,),
+                    daemon=True
+                    )
+        else:
+            self.state_transition_event = None
+            self.state_transition_thread = None
 
     @property
     def fan_speed(self):
@@ -135,6 +182,55 @@ class freshroastsr700(object):
            (optional instantiation parameter, defaults to 8)."""
         return self._heater_level.value
 
+    @property
+    def connected(self):
+        """A getter method for _connected. Indicates that the
+        this software is currently communicating with FreshRoast SR700
+        hardware."""
+        return self._connected.value
+
+    def set_state_transition_func(self, func):
+        """Set, or re-set, the state transition function callback.
+           This function will be called from a separate thread within
+           freshroastsr700, as triggered by a separate process.
+           It's important that any data touched by this
+           function be process-safe.
+           This function will fail if the freshroastsr700 device is already
+           connected to hardware, because by that time, the timer process
+           and threads have already been spawned.
+           THIS FUNCTION MUST BE CALLED BEFORE freshroastsr700.auto_connect().
+           """
+        if self._connected.value:
+            logging.error("freshroastsr700.set_state_transition_func must be "
+                          "called before freshroastsr700.state_transition_func."
+                          " Not registering func.")
+            return False
+        # no connection yet. so OK to set func pointer
+        self.create_state_transition_system(func)
+        return True
+
+    def update_data_run(self, event_to_wait_on):
+        """This is the thread that listens to an event from
+           the comm process to execute the update_data_func callback
+           in the context of the main process.
+           """
+        # with the daemon=Turue setting, this thread should
+        # quit 'automatically'
+        while event_to_wait_on.wait():
+            event_to_wait_on.clear()
+            self.update_data_func()
+
+    def state_transition_run(self, event_to_wait_on):
+        """This is the thread that listens to an event from
+           the timer process to execute the state_transition_func callback
+           in the context of the main process.
+           """
+        # with the daemon=Turue setting, this thread should
+        # quit 'automatically'
+        while event_to_wait_on.wait():
+            event_to_wait_on.clear()
+            self.state_transition_func()
+
     def connect(self):
         """Connects to the roaster and creates communication thread."""
         port = utils.find_device('1A86:5523')
@@ -151,6 +247,7 @@ class freshroastsr700(object):
 
         self._initialize()
 
+        # create comm process
         self.comm_process = mp.Process(
             target=self.comm,
             args=(
@@ -158,12 +255,33 @@ class freshroastsr700(object):
                 self._pid_kp,
                 self._pid_ki,
                 self._pid_kd,
-                self._heater_bangbang_segments,))
+                self._heater_bangbang_segments,
+                self.update_data_event,))
         self.comm_process.daemon = True
         self.comm_process.start()
-        self.time_process = mp.Process(target=self.timer)
+        # create timer process that counts down time_remaining
+        self.time_process = mp.Process(
+            target=self.timer,
+            args=(
+                self.state_transition_event,))
         self.time_process.daemon = True
         self.time_process.start()
+        # EXTREMELY IMPORTANT - for this to work at all in Windows,
+        # where the above processes are spawned (vs forked in Unix),
+        # the thread objects (as sattributes of this object) must be
+        # assigned to this object AFTER we have spawned the processes.
+        # That way, multiprocessing can pickle the freshroastsr700
+        # successfully. (It can't pickle thread-related stuff.)
+        if self.update_data_func is not None:
+            # Need to launch the thread that will listen to the event
+            self.create_update_data_system(
+                None, setFunc=False, createThread=True)
+            self.update_data_thread.start()
+        if self.state_transition_func is not None:
+            # Need to launch the thread that will listen to the event
+            self.create_state_transition_system(
+                None, setFunc=False, createThread=True)
+            self.state_transition_thread.start()
 
     def _initialize(self):
         """Sends the initialization packet to the roaster."""
@@ -224,7 +342,7 @@ class freshroastsr700(object):
     def auto_connect(self):
         """Starts a thread that will automatically connect to the roaster when
         it is plugged in."""
-        self.connected = False
+        self._connected.value = 0
         self.auto_connect_thread = threading.Thread(target=self._auto_connect)
         self.auto_connect_thread.start()
 
@@ -233,7 +351,7 @@ class freshroastsr700(object):
         while(self._cont.value):
             try:
                 self.connect()
-                self.connected = True
+                self._connected.value = 1
                 break
             except exceptions.RoasterLookupError:
                 time.sleep(.25)
@@ -246,7 +364,7 @@ class freshroastsr700(object):
 
     def comm(self, thermostat=False,
              kp=0.06, ki=0.0075, kd=0.01,
-             heater_segments=8):
+             heater_segments=8, update_data_event=None):
         """Main communications loop to the roaster. If the packet is not 14
         bytes exactly, the packet will not be opened. If an update data
         function is available, it will be called when the packet is opened."""
@@ -282,7 +400,8 @@ class freshroastsr700(object):
             while self._ser.in_waiting:
                 _byte = self._ser.read(1)
                 read_state, r, err = (
-                    self._process_reponse_byte(read_state, _byte, r))
+                    self._process_reponse_byte(
+                        read_state, _byte, r, update_data_event))
 
             # next, PID controller calcs when roasting.
             if thermostat:
@@ -317,7 +436,7 @@ class freshroastsr700(object):
 
         self._ser.close()
 
-    def _process_reponse_byte(self, read_state, _byte, r):
+    def _process_reponse_byte(self, read_state, _byte, r, update_data_event):
         err = False
         if self.LOOKING_FOR_HEADER_1 == read_state:
             if b'\xAA' == _byte:
@@ -342,21 +461,23 @@ class freshroastsr700(object):
                     # we will 'fake' a footer to make this decoder work
                     # as intended
                     read_state, r, _ = (
-                        self._process_reponse_byte(read_state, b'\xAA', r))
+                        self._process_reponse_byte(
+                            read_state, b'\xAA', r, update_data_event))
                     read_state, r, err = (
-                        self._process_reponse_byte(read_state, b'\xFA', r))
+                        self._process_reponse_byte(
+                            read_state, b'\xFA', r, update_data_event))
 
         elif self.LOOKING_FOR_FOOTER_2 == read_state:
             if b'\xFA' == _byte:
                 # OK we have a full packet - PROCESS PACKET
-                err = self._process_response_data(r)
+                err = self._process_response_data(r, update_data_event)
                 read_state = self.LOOKING_FOR_HEADER_1
             else:
                 # the last byte was not the beginning of the footer
                 r.append(b'\xAA')
                 read_state = self.PACKET_DATA
                 read_state, r, err = self._process_reponse_byte(
-                    read_state, _byte, r)
+                    read_state, _byte, r, update_data_event)
         else:
             # error state, shouldn't happen...
             logging.error('_process_reponse_byte - invalid read_state %d' %
@@ -365,7 +486,7 @@ class freshroastsr700(object):
             err = True
         return read_state, r, err
 
-    def _process_response_data(self, r):
+    def _process_response_data(self, r, update_data_event):
         err = False
         if len(r) != 10:
             logging.warn('read packet data len not 10, got: %d' % len(r))
@@ -383,11 +504,11 @@ class freshroastsr700(object):
             else:
                 self.current_temp = temp
 
-            if(self.update_data_func is not None):
-                self.update_data_func()
+            if(update_data_event is not None):
+                update_data_event.set()
         return err
 
-    def timer(self):
+    def timer(self, state_transition_event=None):
         """Timer loop used to keep track of the time while roasting or
         cooling. If the time remaining reaches zero, the roaster will call the
         supplied state transistion function or the roaster will be set to
@@ -400,8 +521,8 @@ class freshroastsr700(object):
                 if(self.time_remaining > 0):
                     self.time_remaining -= 1
                 else:
-                    if(self.state_transition_func is not None):
-                        self.state_transition_func()
+                    if(state_transition_event is not None):
+                        state_transition_event.set()
                     else:
                         self.idle()
             else:
