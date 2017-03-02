@@ -13,9 +13,9 @@ A Python module to control a FreshRoastSR700 coffee roaster.
 
 Usage
 =====
-.. highlight:: python
-   :linenothreshold: 5
+
 ::
+
   import time
   import freshroastsr700
 
@@ -42,6 +42,7 @@ Usage
 API & Documentation
 ===================
 Complete code documentation and a breakdown of the FreshroastSR700 communication protocol can be found at freshroastsr700.readthedocs.org_. The Fresh Roast SR700 can be purchased directly from the manufacturer at homeroastingsupplies.com_.
+
 .. _freshroastsr700.readthedocs.org: http://freshroastsr700.readthedocs.org
 .. _homeroastingsupplies.com: http://homeroastingsupplies.com/product/fresh-roast-sr700/
 
@@ -72,6 +73,6 @@ Version 0.1.0
 -------------
  - (no notes)
 
- License
- =======
- MIT License. Please refer to LICENSE in this package for details.
+License
+=======
+MIT License. Please refer to LICENSE in this package for details.
