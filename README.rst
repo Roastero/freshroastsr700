@@ -14,7 +14,7 @@ A Python module to control a FreshRoastSR700 coffee roaster.
 Usage
 =====
 
-.. code-block:: python
+.. code-block::python
     :linenos:
 
   import time
