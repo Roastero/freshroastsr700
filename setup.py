@@ -13,7 +13,7 @@ with open(os.path.join(here, 'README.rst')) as f:
 
 # import version number
 version = {}
-with open("./openroast/version.py") as fp:
+with open("./freshroastsr700/version.py") as fp:
     exec(fp.read(), version)
 # later on we use: version['__version__']
 

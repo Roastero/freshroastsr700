@@ -18,7 +18,31 @@ from freshroastsr700 import exceptions
 
 
 class freshroastsr700(object):
-    """A class to interface with a freshroastsr700 coffee roaster."""
+    """A class to interface with a freshroastsr700 coffee roaster.
+
+    Args:
+        update_data_func (func): A function to call when this object
+        receives new data from the hardware. Defaults to None.
+
+        state_transition_func (func): A function to call when time_remaining
+        counts down to 0 and the device is either in roasting or cooling
+        state. Defaults to None.
+
+        thermostat (bool): thermostat mode.
+        if set to True, turns on thermostat mode.  In thermostat
+        mode, freshroastsr700 takes control of heat_setting and does
+        software PID control to hit the demanded target_temp. Defaults to
+        False.
+
+        kp (float): Kp value to use for PID control. Defaults to 0.06.
+
+        ki (float): Ki value to use for PID control. Defaults to 0.0075.
+
+        kd (float): Kd value to use for PID control. Defaults to 0.01.
+
+        heater_segments (int): the pseudo-control range for the internal
+        heat_controller object.  Defaults to 8.
+    """
     def __init__(self,
                  update_data_func=None,
                  state_transition_func=None,
@@ -29,8 +53,8 @@ class freshroastsr700(object):
         data function is called when a packet is opened. The state transistion
         function is used by the timer thread to know what to do next. See wiki
         for more information on packet structure and fields."""
-        self.create_update_data_system(update_data_func)
-        self.create_state_transition_system(state_transition_func)
+        self._create_update_data_system(update_data_func)
+        self._create_state_transition_system(state_transition_func)
 
         self._header = sharedctypes.Array('c', b'\xAA\xAA')
         self._temp_unit = sharedctypes.Array('c', b'\x61\x74')
@@ -66,7 +90,7 @@ class freshroastsr700(object):
         # initialize to 'not connected'
         self._connected = sharedctypes.Value('i', 0)
 
-    def create_update_data_system(
+    def _create_update_data_system(
             self, update_data_func, setFunc=True, createThread=False):
         # these callbacks cannot be called from another process in Windows.
         # Therefore, spawn a thread belonging to the calling process
@@ -88,7 +112,7 @@ class freshroastsr700(object):
             self.update_data_event = None
             self.update_data_thread = None
 
-    def create_state_transition_system(
+    def _create_state_transition_system(
             self, state_transition_func, setFunc=True, createThread=False):
         # these callbacks cannot be called from another process in Windows.
         # Therefore, spawn a thread belonging to the calling process
@@ -112,7 +136,14 @@ class freshroastsr700(object):
 
     @property
     def fan_speed(self):
-        """A getter method for _fan_speed."""
+        """Get/Set fan speed. Can be 1 to 9 inclusive.
+
+        Args:
+            Setter: fan_speed (int): fan speed
+
+        Returns:
+            Getter: (int): fan speed
+        """
         return self._fan_speed.value
 
     @fan_speed.setter
@@ -125,7 +156,15 @@ class freshroastsr700(object):
 
     @property
     def heat_setting(self):
-        """A getter method for _heat_setting."""
+        """Get/Set heat setting, 0 to 3 inclusive. 0=off, 3=high.
+        Do not set when running freshroastsr700 in thermostat mode.
+
+        Args:
+            Setter: heat_setting (int): heat setting
+
+        Returns:
+            Getter: (int): heat setting
+        """
         return self._heat_setting.value
 
     @heat_setting.setter
@@ -138,6 +177,18 @@ class freshroastsr700(object):
 
     @property
     def target_temp(self):
+        """Get/Set the target temperature for this package's built-in software
+        PID controler.  Only used when freshroastsr700 is instantiated with
+        thermostat=True.
+
+        Args:
+            Setter: value (int): a target temperature in degF between 150
+            and 551.
+
+        Returns:
+            Getter: (int) target temperature in degF between 150
+            and 551
+        """
         return self._target_temp.value
 
     @target_temp.setter
@@ -149,6 +200,11 @@ class freshroastsr700(object):
 
     @property
     def current_temp(self):
+        """Current temperature of the roast chamber as reported by hardware.
+
+        Returns:
+            (int) current temperature, in degrees Fahrenheit
+        """
         return self._current_temp.value
 
     @current_temp.setter
@@ -160,6 +216,20 @@ class freshroastsr700(object):
 
     @property
     def time_remaining(self):
+        """The amount of time, in seconds, remaining until a call to
+        the state_transition_func is made. can be set to an arbitrary value
+        up to 600 seconds at any time.  When a new value is set,
+        freshroastsr700 will count down from this new value down to 0.
+
+        time_remaining is decremented to 0 only when in a roasting or
+        cooling state.  In other states, the value is not touched.
+
+        Args:
+            Setter: time_remaining (int): tiem remaining in seconds
+
+        Returns:
+            Getter: time_remaining(int): time remaining, in seconds
+        """
         return self._time_remaining.value
 
     @time_remaining.setter
@@ -168,6 +238,12 @@ class freshroastsr700(object):
 
     @property
     def total_time(self):
+        """The total time this instance has been in roasting or cooling
+        state sicne the latest roast began.
+
+        Returns:
+            total_time (int): time, in seconds
+        """
         return self._total_time.value
 
     @total_time.setter
@@ -190,16 +266,24 @@ class freshroastsr700(object):
         return self._connected.value
 
     def set_state_transition_func(self, func):
-        """Set, or re-set, the state transition function callback.
-           This function will be called from a separate thread within
-           freshroastsr700, as triggered by a separate process.
-           It's important that any data touched by this
-           function be process-safe.
-           This function will fail if the freshroastsr700 device is already
-           connected to hardware, because by that time, the timer process
-           and threads have already been spawned.
-           THIS FUNCTION MUST BE CALLED BEFORE freshroastsr700.auto_connect().
-           """
+        """THIS FUNCTION MUST BE CALLED BEFORE CALLING
+        freshroastsr700.auto_connect().
+
+        Set, or re-set, the state transition function callback.
+        The supplied function will be called from a separate thread within
+        freshroastsr700, triggered by a separate, internal child process.
+        This function will fail if the freshroastsr700 device is already
+        connected to hardware, because by that time, the timer process
+        and thread have already been spawned.
+
+        Args:
+            state_transition_func (func): the function to call for every
+            state transition.  A state transition occurs whenever the
+            freshroastsr700's time_remaining value counts down to 0.
+
+        Returns:
+            nothing
+       """
         if self._connected.value:
             logging.error("freshroastsr700.set_state_transition_func must be "
                           "called before freshroastsr700.state_transition_func."
@@ -232,7 +316,10 @@ class freshroastsr700(object):
             self.state_transition_func()
 
     def connect(self):
-        """Connects to the roaster and creates communication thread."""
+        """Do not call this directly - call auto_connect(), which will call
+        connect() for you.
+
+        Connects to the roaster and creates communication thread."""
         port = utils.find_device('1A86:5523')
         self._ser = serial.Serial(
             port=port,
@@ -249,7 +336,7 @@ class freshroastsr700(object):
 
         # create comm process
         self.comm_process = mp.Process(
-            target=self.comm,
+            target=self._comm,
             args=(
                 self._thermostat,
                 self._pid_kp,
@@ -261,7 +348,7 @@ class freshroastsr700(object):
         self.comm_process.start()
         # create timer process that counts down time_remaining
         self.time_process = mp.Process(
-            target=self.timer,
+            target=self._timer,
             args=(
                 self.state_transition_event,))
         self.time_process.daemon = True
@@ -274,12 +361,12 @@ class freshroastsr700(object):
         # successfully. (It can't pickle thread-related stuff.)
         if self.update_data_func is not None:
             # Need to launch the thread that will listen to the event
-            self.create_update_data_system(
+            self._create_update_data_system(
                 None, setFunc=False, createThread=True)
             self.update_data_thread.start()
         if self.state_transition_func is not None:
             # Need to launch the thread that will listen to the event
-            self.create_state_transition_system(
+            self._create_state_transition_system(
                 None, setFunc=False, createThread=True)
             self.state_transition_thread.start()
 
@@ -287,7 +374,7 @@ class freshroastsr700(object):
         """Sends the initialization packet to the roaster."""
         self._header.value = b'\xAA\x55'
         self._current_state.value = b'\x00\x00'
-        s = self.generate_packet()
+        s = self._generate_packet()
         self._ser.write(s)
         self._header.value = b'\xAA\xAA'
         self._current_state.value = b'\x02\x01'
@@ -297,7 +384,7 @@ class freshroastsr700(object):
     def _write_to_device(self):
         success = False
         try:
-            packet = self.generate_packet()
+            packet = self._generate_packet()
             logging.debug('WR: ' + str(binascii.hexlify(packet)))
             self._ser.write(packet)
             success = True
@@ -362,27 +449,34 @@ class freshroastsr700(object):
         cleanly."""
         self._cont.value = 0
 
-    def comm(self, thermostat=False,
+    def _comm(self, thermostat=False,
              kp=0.06, ki=0.0075, kd=0.01,
              heater_segments=8, update_data_event=None):
-        """Main communications loop to the roaster. Spawned by auto_connect(),
-        do not call this directly. If an update data event
-        is available, it will be signalled whenever a valid
-        packet is received from the device.
+        """Do not call this directly - call auto_connect(), which will spawn
+        comm() for you.
+
+        This is the main communications loop to the roaster.
+        whenever a valid packet is received from the device, if an
+        update_data_event is available, it will be signalled.
 
         Args:
             thermostat (bool): thermostat mode.
-              if set to True, turns on thermostat mode.  In thermostat
-              mode, freshroastsr700 takes control of heat_setting and does
-              software PID control to hit the demanded target_temp.
+            if set to True, turns on thermostat mode.  In thermostat
+            mode, freshroastsr700 takes control of heat_setting and does
+            software PID control to hit the demanded target_temp.
+
             kp (float): Kp value to use for PID control. Defaults to 0.06.
+
             ki (float): Ki value to use for PID control. Defaults to 0.0075.
+
             kd (float): Kd value to use for PID control. Defaults to 0.01.
+
             heater_segments (int): the pseudo-control range for the internal
-              heat_controller object.  Defaults to 8.
+            heat_controller object.  Defaults to 8.
+
             update_data_event (multiprocessing.Event): If set, allows the
-              comm_process to signal to the parent process that new device data
-              is available.
+            comm_process to signal to the parent process that new device data
+            is available.
 
         Returns:
             nothing
@@ -527,7 +621,7 @@ class freshroastsr700(object):
                 update_data_event.set()
         return err
 
-    def timer(self, state_transition_event=None):
+    def _timer(self, state_transition_event=None):
         """Timer loop used to keep track of the time while roasting or
         cooling. If the time remaining reaches zero, the roaster will call the
         supplied state transistion function or the roaster will be set to
@@ -549,7 +643,16 @@ class freshroastsr700(object):
 
     def get_roaster_state(self):
         """Returns a string based upon the current state of the roaster. Will
-        raise an exception if the state is unknown."""
+        raise an exception if the state is unknown.
+
+        Returns:
+            'idle' if idle,
+            'sleeping' if sleeping,
+            'cooling' if cooling,
+            'roasting' if roasting,
+            'connecting' if in hardware connection phase,
+            'unknown' otherwise
+        """
         value = self._current_state.value
         if(value == b'\x02\x01'):
             return 'idle'
@@ -565,7 +668,7 @@ class freshroastsr700(object):
         else:
             return 'unknown'
 
-    def generate_packet(self):
+    def _generate_packet(self):
         """Generates a packet based upon the current class variables. Note that
         current temperature is not sent, as the original application sent zeros
         to the roaster for the current temperature."""
@@ -606,12 +709,23 @@ class freshroastsr700(object):
 
 
 class heat_controller(object):
-    """A class to do gross-level pulse modulation on a bang-bang interface."""
+    """A class to do gross-level pulse modulation on a bang-bang interface.
+
+    Args:
+        number_of_segments (int): the resolution of the heat_controller.
+        Defaults to 8.  for number_of_segments=N, creates a heat_controller
+        that varies the heat between 0..N inclusive, in integer increments,
+        where 0 is no heat, and N is full heat.  The bigger the number, the
+        less often the heat value can be changed, because this object is
+        designed to be called at a regular time interval to output N binary
+        values before rolling over or picking up the latest commanded heat
+        value.
+    """
     def __init__(self, number_of_segments=8):
         # num_segments determines how many time samples are used to produce
         # the output.  This effectively translates to a number of output
         # levels on the bang-bang controller.  If number_of_segments == 8,
-        # for example, then, possible output 'levels' are 0,1,2,...7.
+        # for example, then, possible output 'levels' are 0,1,2,...8.
         # Depending on the output
         # rate and the load's time constant, the result could be perceived
         # as discrete lumps rather than an effective average output.
@@ -667,12 +781,21 @@ class heat_controller(object):
 
     @property
     def heat_level(self):
-        """The desired output level."""
+        """Set/Get the current desired output level. Must be between 0 and
+        number_of_segments inclusive.
+
+        Args:
+            Setter: value (int): heat_level value,
+            between 0 and number_of_segments inclusive.
+
+        Returns:
+            Getter (int): heat level"""
         return self._heat_level
 
     @heat_level.setter
     def heat_level(self, value):
-        """Set the desired output level. """
+        """Set the desired output level. Must be between 0 and
+        number_of_segments inclusive."""
         if value < 0:
             self._heat_level = 0
         elif round(value) > self._num_segments:
@@ -683,14 +806,15 @@ class heat_controller(object):
     def generate_bangbang_output(self):
         """Generates the latest on or off pulse in
            the string of on (True) or off (False) pulses
-           according to the desired heat_level.  Successive calls
+           according to the desired heat_level setting.  Successive calls
            to this function will return the next value in the
            on/off array series.  Call this at control loop rate to
            obtain the necessary on/off pulse train.
            This system will not work if the caller expects to be able
            to specify a new heat_level at every control loop iteration.
            Only the value set at every number_of_segments iterations
-           will be picked up for output!"""
+           will be picked up for output! Call about_to_rollover to determine
+           if it's time to set a new heat_level, if a new level is desired."""
         if self._current_index >= self._num_segments:
             # we're due to switch over to the next
             # commanded heat_level
@@ -705,5 +829,6 @@ class heat_controller(object):
     def about_to_rollover(self):
         """This method indicates that the next call to generate_bangbang_output
            is a wraparound read.  Use this to determine if it's time to
-           run the PID controller iteration again."""
+           pick up the latest commanded heat_level value and run a PID
+           controller iteration."""
         return self._current_index >= self._num_segments
