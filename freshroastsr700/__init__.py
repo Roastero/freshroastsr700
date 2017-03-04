@@ -450,8 +450,8 @@ class freshroastsr700(object):
         self._cont.value = 0
 
     def _comm(self, thermostat=False,
-             kp=0.06, ki=0.0075, kd=0.01,
-             heater_segments=8, update_data_event=None):
+              kp=0.06, ki=0.0075, kd=0.01,
+              heater_segments=8, update_data_event=None):
         """Do not call this directly - call auto_connect(), which will spawn
         comm() for you.
 

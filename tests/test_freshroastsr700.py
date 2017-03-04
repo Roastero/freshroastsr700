@@ -40,7 +40,7 @@ class TestFreshroastsr700(unittest.TestCase):
         self.assertEqual(self.roaster.current_temp, 150)
 
     def test_generate_packet(self):
-        packet = self.roaster.generate_packet()
+        packet = self.roaster._generate_packet()
         self.assertEqual(
             packet, b'\xaa\xaaatc\x02\x01\x01\x00\x00\x00\x00\xaa\xfa')
 
