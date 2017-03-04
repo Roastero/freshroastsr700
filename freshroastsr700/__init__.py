@@ -365,9 +365,28 @@ class freshroastsr700(object):
     def comm(self, thermostat=False,
              kp=0.06, ki=0.0075, kd=0.01,
              heater_segments=8, update_data_event=None):
-        """Main communications loop to the roaster. If the packet is not 14
-        bytes exactly, the packet will not be opened. If an update data
-        function is available, it will be called when the packet is opened."""
+        """Main communications loop to the roaster. Spawned by auto_connect(),
+        do not call this directly. If an update data event
+        is available, it will be signalled whenever a valid
+        packet is received from the device.
+
+        Args:
+            thermostat (bool): thermostat mode.
+              if set to True, turns on thermostat mode.  In thermostat
+              mode, freshroastsr700 takes control of heat_setting and does
+              software PID control to hit the demanded target_temp.
+            kp (float): Kp value to use for PID control. Defaults to 0.06.
+            ki (float): Ki value to use for PID control. Defaults to 0.0075.
+            kd (float): Kd value to use for PID control. Defaults to 0.01.
+            heater_segments (int): the pseudo-control range for the internal
+              heat_controller object.  Defaults to 8.
+            update_data_event (multiprocessing.Event): If set, allows the
+              comm_process to signal to the parent process that new device data
+              is available.
+
+        Returns:
+            nothing
+        """
         # Initialize PID controller if thermostat function was specified at
         # init time
         pidc = None

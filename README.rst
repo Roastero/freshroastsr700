@@ -48,7 +48,7 @@ Complete code documentation and a breakdown of the FreshroastSR700 communication
 
 Installation
 ============
-The latest release of this module can be installed by running:
+The latest release of this package can be installed by running:
 
 ::
 
@@ -65,9 +65,9 @@ Version 0.2.0 - March 2017
    code refactoring.
  - Reduced processor load for PID control as part of code refactoring.
 
-Version 0.1.1 - Jan 2017
-------------------------
- - Added python 2.7 support.
+Version 0.1.1 - Dec 28 2017
+---------------------------
+ - Added support for python 2.7.
 
 Version 0.1.0
 -------------

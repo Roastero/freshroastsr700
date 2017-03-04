@@ -21,10 +21,9 @@ Contents
 .. toctree::
     :maxdepth: 4
 
-    communication_protocol
-    installation
-    contributing
     freshroastsr700
+    communication_protocol
+    contributing
     releases
 
 
