@@ -290,7 +290,7 @@ class freshroastsr700(object):
                           " Not registering func.")
             return False
         # no connection yet. so OK to set func pointer
-        self.create_state_transition_system(func)
+        self._create_state_transition_system(func)
         return True
 
     def update_data_run(self, event_to_wait_on):
