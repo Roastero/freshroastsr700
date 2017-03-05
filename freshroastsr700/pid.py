@@ -7,31 +7,43 @@
 
 class PID(object):
     """Discrete PID control."""
-    def __init__(self, P, I, D, Derivator=0, Integrator=0, Integrator_max=4,
-                 Integrator_min=-4):
-
+    def __init__(self, P, I, D, Derivator=0, Integrator=0,
+                 Output_max=8, Output_min=0):
         self.Kp = P
         self.Ki = I
         self.Kd = D
         self.Derivator = Derivator
         self.Integrator = Integrator
-        self.Integrator_max = Integrator_max
-        self.Integrator_min = Integrator_min
-
+        self.Output_max = Output_max
+        self.Output_min = Output_min
+        if(I > 0.0):
+            self.Integrator_max = Output_max / I
+            self.Integrator_min = Output_min / I
+        else:
+            self.Integrator_max = 0.0
+            self.Integrator_min = 0.0
         self.targetTemp = 0
         self.error = 0.0
 
     def update(self, currentTemp, targetTemp):
         """Calculate PID output value for given reference input and feedback."""
+        # in this implementation, ki includes the dt multiplier term,
+        # and kd includes the dt divisor term.  This is typical practice in
+        # industry.
         self.targetTemp = targetTemp
         self.error = targetTemp - currentTemp
 
         self.P_value = self.Kp * self.error
-        self.D_value = self.Kd * (self.error - self.Derivator)
-        self.Derivator = self.error
+        # it is common practice to compute derivative term against PV,
+        # instead of de/dt.  This is because de/dt spikes
+        # when the set point changes.
+
+        # PV version with no dPV/dt filter - note 'previous'-'current',
+        # that's desired, how the math works out
+        self.D_value = self.Kd * (self.Derivator - currentTemp)
+        self.Derivator = currentTemp
 
         self.Integrator = self.Integrator + self.error
-
         if self.Integrator > self.Integrator_max:
             self.Integrator = self.Integrator_max
         elif self.Integrator < self.Integrator_min:
@@ -40,7 +52,10 @@ class PID(object):
         self.I_value = self.Integrator * self.Ki
 
         output = self.P_value + self.I_value + self.D_value
-
+        if output > self.Output_max:
+            output = self.Output_max
+        if output < self.Output_min:
+            output = self.Output_min
         return(output)
 
     def setPoint(self, targetTemp):
