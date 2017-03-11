@@ -447,7 +447,7 @@ class freshroastsr700(object):
         """Attempts to connect to the roaster every quarter of a second."""
         while(self._cont.value):
             try:
-                self.connect()
+                self._connect()
                 self._connected.value = 1
                 break
             except exceptions.RoasterLookupError:
