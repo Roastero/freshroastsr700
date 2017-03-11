@@ -89,6 +89,28 @@ class freshroastsr700(object):
 
         # initialize to 'not connected'
         self._connected = sharedctypes.Value('i', 0)
+        # initialize to 'not trying to connect'
+        self._attempting_connect = sharedctypes.Value('i', 0)
+
+        # create comm process
+        self.comm_process = mp.Process(
+            target=self._comm,
+            args=(
+                self._thermostat,
+                self._pid_kp,
+                self._pid_ki,
+                self._pid_kd,
+                self._heater_bangbang_segments,
+                self.update_data_event,))
+        self.comm_process.daemon = True
+        self.comm_process.start()
+        # create timer process that counts down time_remaining
+        self.time_process = mp.Process(
+            target=self._timer,
+            args=(
+                self.state_transition_event,))
+        self.time_process.daemon = True
+        self.time_process.start()
 
     def _create_update_data_system(
             self, update_data_func, setFunc=True, createThread=False):
@@ -97,9 +119,14 @@ class freshroastsr700(object):
         # instead.
         # the comm and timer processes will set events that the threads
         # will listen for to initiate the callbacks
+
+        # only create the mp.Event once -
+        # to mimic create_state_transition_system, for future-proofing
+        # (in this case, currently, this is only called at __init__() time)
+        if not hasattr(self, 'update_data_event'):
+            self.update_data_event = mp.Event()
         if setFunc:
             self.update_data_func = update_data_func
-            self.update_data_event = mp.Event()
         if self.update_data_func is not None:
             if createThread:
                 self.update_data_thread = threading.Thread(
@@ -109,7 +136,6 @@ class freshroastsr700(object):
                     daemon=True
                     )
         else:
-            self.update_data_event = None
             self.update_data_thread = None
 
     def _create_state_transition_system(
@@ -119,9 +145,13 @@ class freshroastsr700(object):
         # instead.
         # the comm and timer processes will set events that the threads
         # will listen for to initiate the callbacks
+
+        # only create the mp.Event once - this fn can get called more
+        # than once, by __init__() and by set_state_transition_func()
+        if not hasattr(self, 'state_transition_event'):
+            self.state_transition_event = mp.Event()
         if setFunc:
             self.state_transition_func = state_transition_func
-            self.state_transition_event = mp.Event()
         if self.state_transition_func is not None:
             if createThread:
                 self.state_transition_thread = threading.Thread(
@@ -131,7 +161,6 @@ class freshroastsr700(object):
                     daemon=True
                     )
         else:
-            self.state_transition_event = None
             self.state_transition_thread = None
 
     @property
@@ -286,7 +315,7 @@ class freshroastsr700(object):
        """
         if self._connected.value:
             logging.error("freshroastsr700.set_state_transition_func must be "
-                          "called before freshroastsr700.state_transition_func."
+                          "called before freshroastsr700.auto_connect()."
                           " Not registering func.")
             return False
         # no connection yet. so OK to set func pointer
@@ -315,7 +344,7 @@ class freshroastsr700(object):
             event_to_wait_on.clear()
             self.state_transition_func()
 
-    def connect(self):
+    def _connect(self):
         """Do not call this directly - call auto_connect(), which will call
         connect() for you.
 
@@ -333,42 +362,6 @@ class freshroastsr700(object):
             dsrdtr=False)
 
         self._initialize()
-
-        # create comm process
-        self.comm_process = mp.Process(
-            target=self._comm,
-            args=(
-                self._thermostat,
-                self._pid_kp,
-                self._pid_ki,
-                self._pid_kd,
-                self._heater_bangbang_segments,
-                self.update_data_event,))
-        self.comm_process.daemon = True
-        self.comm_process.start()
-        # create timer process that counts down time_remaining
-        self.time_process = mp.Process(
-            target=self._timer,
-            args=(
-                self.state_transition_event,))
-        self.time_process.daemon = True
-        self.time_process.start()
-        # EXTREMELY IMPORTANT - for this to work at all in Windows,
-        # where the above processes are spawned (vs forked in Unix),
-        # the thread objects (as sattributes of this object) must be
-        # assigned to this object AFTER we have spawned the processes.
-        # That way, multiprocessing can pickle the freshroastsr700
-        # successfully. (It can't pickle thread-related stuff.)
-        if self.update_data_func is not None:
-            # Need to launch the thread that will listen to the event
-            self._create_update_data_system(
-                None, setFunc=False, createThread=True)
-            self.update_data_thread.start()
-        if self.state_transition_func is not None:
-            # Need to launch the thread that will listen to the event
-            self._create_state_transition_system(
-                None, setFunc=False, createThread=True)
-            self.state_transition_thread.start()
 
     def _initialize(self):
         """Sends the initialization packet to the roaster."""
@@ -430,8 +423,25 @@ class freshroastsr700(object):
         """Starts a thread that will automatically connect to the roaster when
         it is plugged in."""
         self._connected.value = 0
-        self.auto_connect_thread = threading.Thread(target=self._auto_connect)
-        self.auto_connect_thread.start()
+        # tell comm process to attempt connection
+        self._attempting_connect.value = 1
+
+        # EXTREMELY IMPORTANT - for this to work at all in Windows,
+        # where the above processes are spawned (vs forked in Unix),
+        # the thread objects (as sattributes of this object) must be
+        # assigned to this object AFTER we have spawned the processes.
+        # That way, multiprocessing can pickle the freshroastsr700
+        # successfully. (It can't pickle thread-related stuff.)
+        if self.update_data_func is not None:
+            # Need to launch the thread that will listen to the event
+            self._create_update_data_system(
+                None, setFunc=False, createThread=True)
+            self.update_data_thread.start()
+        if self.state_transition_func is not None:
+            # Need to launch the thread that will listen to the event
+            self._create_state_transition_system(
+                None, setFunc=False, createThread=True)
+            self.state_transition_thread.start()
 
     def _auto_connect(self):
         """Attempts to connect to the roaster every quarter of a second."""
@@ -481,6 +491,18 @@ class freshroastsr700(object):
         Returns:
             nothing
         """
+        # waiting for command to attempt connect
+        while self._attempting_connect.value == 0:
+            time.sleep(0.25)
+        # we got the command to attempt to connect
+        # reset flag
+        self._attempting_connect.value = 0
+        # attempt connection
+        # this call will block until a connection is achieved
+        self._auto_connect()
+
+        # we are connected!
+
         # Initialize PID controller if thermostat function was specified at
         # init time
         pidc = None
