@@ -17,7 +17,13 @@ Usage
 .. code:: python
 
   import time
+  import multiprocessing
   import freshroastsr700
+
+  # freshroastsr700 uses multiprocessing under the hood.
+  # call multiprocessing.freeze_support() if you intend to
+  # freeze your app for packaging.
+  multiprocessing.freeze_support()
 
   # Create a roaster object.
   roaster = freshroastsr700.freshroastsr700()
@@ -56,6 +62,13 @@ The latest release of this package can be installed by running:
 
 Version History
 ===============
+Version 0.2.1 - March 2017
+--------------------------
+ - Resolves issue #20 by managing hardware discovery logic in the
+   comm process, eliminating the need for the thread heretofore
+   associated with auto_connect.  Openroast 1.2 (currently in development)
+   now operates properly in Windows 10 64-bit, with this fix.
+
 Version 0.2.0 - March 2017
 --------------------------
  - Completely rewritten PID control for tighter tracking against target
