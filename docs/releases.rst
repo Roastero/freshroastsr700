@@ -1,9 +1,9 @@
 Release Notes
 =============
 
-Version 0.2.2 - April 2017
---------------------------
-Resolves issue #22, 23, 24 and 25.  Added logic to handle hardware
+Version 0.2.2 - May 2017
+------------------------
+Resolves issues #22, 23, 24 and 25.  Added logic to handle hardware
 connects and hardware disconnects properly in all supported OSes.  Software
 now supports multiple connect()-disconnect() cycles using the same
 freshroastsrs700 object instance.
