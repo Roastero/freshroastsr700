@@ -53,6 +53,21 @@ class freshroastsr700(object):
         data function is called when a packet is opened. The state transistion
         function is used by the timer thread to know what to do next. See wiki
         for more information on packet structure and fields."""
+        # constants for protocol decoding
+        self.LOOKING_FOR_HEADER_1 = 0
+        self.LOOKING_FOR_HEADER_2 = 1
+        self.PACKET_DATA = 2
+        self.LOOKING_FOR_FOOTER_2 = 3
+        # constants for connection state monitoring
+        self.CS_NOT_CONNECTED = -2
+        self.CS_ATTEMPTING_CONNECT = -1
+        self.CS_CONNECTING = 0
+        self.CS_CONNECTED = 1
+        # constants for connection attempt type
+        self.CA_NONE = 0
+        self.CA_AUTO = 1
+        self.CA_SINGLE_SHOT = 2
+
         self._create_update_data_system(update_data_func)
         self._create_state_transition_system(state_transition_func)
 
@@ -69,7 +84,8 @@ class freshroastsr700(object):
         self._time_remaining = sharedctypes.Value('i', 0)
         self._total_time = sharedctypes.Value('i', 0)
 
-        self._cont = sharedctypes.Value('i', 1)
+        self._disconnect = sharedctypes.Value('i', 0)
+        self._teardown = sharedctypes.Value('i', 0)
 
         # for SW PWM heater setting
         self._heater_level = sharedctypes.Value('i', 0)
@@ -81,16 +97,11 @@ class freshroastsr700(object):
         self._pid_kd = kd
         self._heater_bangbang_segments = heater_segments
 
-        # constants for protocol decoding
-        self.LOOKING_FOR_HEADER_1 = 0
-        self.LOOKING_FOR_HEADER_2 = 1
-        self.PACKET_DATA = 2
-        self.LOOKING_FOR_FOOTER_2 = 3
-
         # initialize to 'not connected'
         self._connected = sharedctypes.Value('i', 0)
+        self._connect_state = sharedctypes.Value('i', self.CS_NOT_CONNECTED)
         # initialize to 'not trying to connect'
-        self._attempting_connect = sharedctypes.Value('i', 0)
+        self._attempting_connect = sharedctypes.Value('i', self.CA_NONE)
 
         # create comm process
         self.comm_process = mp.Process(
@@ -125,10 +136,23 @@ class freshroastsr700(object):
         # (in this case, currently, this is only called at __init__() time)
         if not hasattr(self, 'update_data_event'):
             self.update_data_event = mp.Event()
+        # only create the thread.Event once - this is used to exit
+        # the callback thread
+        if not hasattr(self, 'update_data_callback_kill_event'):
+            self.update_data_callback_kill_event = threading.Event()
+        # destroy an existing thread if we had created one previously
+        if(hasattr(self, 'update_data_thread') and
+           self.update_data_thread is not None):
+            # let's tear this down. To kill it, two events must be set...
+            # in the right sequence!
+            self.update_data_callback_kill_event.set()
+            self.update_data_event.set()
+            self.update_data_thread.join()
         if setFunc:
             self.update_data_func = update_data_func
         if self.update_data_func is not None:
             if createThread:
+                self.update_data_callback_kill_event.clear()
                 self.update_data_thread = threading.Thread(
                     name='sr700_update_data',
                     target=self.update_data_run,
@@ -150,10 +174,23 @@ class freshroastsr700(object):
         # than once, by __init__() and by set_state_transition_func()
         if not hasattr(self, 'state_transition_event'):
             self.state_transition_event = mp.Event()
+        # only create the thread.Event once - this is used to exit
+        # the callback thread
+        if not hasattr(self, 'state_transition_callback_kill_event'):
+            self.state_transition_callback_kill_event = threading.Event()
+        # destroy an existing thread if we had created one previously
+        if(hasattr(self, 'state_transition_thread') and
+           self.state_transition_thread is not None):
+            # let's tear this down. To kill it, two events must be set...
+            # in the right sequence!
+            self.state_transition_callback_kill_event.set()
+            self.state_transition_event.set()
+            self.state_transition_thread.join()
         if setFunc:
             self.state_transition_func = state_transition_func
         if self.state_transition_func is not None:
             if createThread:
+                self.state_transition_callback_kill_event.clear()
                 self.state_transition_thread = threading.Thread(
                     name='sr700_state_transition',
                     target=self.state_transition_run,
@@ -294,6 +331,26 @@ class freshroastsr700(object):
         hardware."""
         return self._connected.value
 
+    @property
+    def connect_state(self):
+        """A getter method for _connect_state. Indicates the current
+        connection state this software is in for FreshRoast SR700
+        hardware.
+        Returns:
+            freshroastsr700.CS_NOT_CONNECTED
+                the software is not currenting communicating with hardware,
+                neither was it instructed to do so.
+                A previously failed connection attempt will also result
+                in this state.
+            freshroastsr700.CS_ATTEMPTING_CONNECT
+                A call to auto_connect() or connect() was made, and the
+                software is currently attempting to connect to hardware.
+            freshroastsr700.CS_CONNECTED
+                The hardware was found, and the software is communicating
+                with the hardware.
+        """
+        return self._connect_state.value
+
     def set_state_transition_func(self, func):
         """THIS FUNCTION MUST BE CALLED BEFORE CALLING
         freshroastsr700.auto_connect().
@@ -331,6 +388,8 @@ class freshroastsr700(object):
         # quit 'automatically'
         while event_to_wait_on.wait():
             event_to_wait_on.clear()
+            if self.update_data_callback_kill_event.is_set():
+                return
             self.update_data_func()
 
     def state_transition_run(self, event_to_wait_on):
@@ -342,24 +401,47 @@ class freshroastsr700(object):
         # quit 'automatically'
         while event_to_wait_on.wait():
             event_to_wait_on.clear()
+            if self.state_transition_callback_kill_event.is_set():
+                return
             self.state_transition_func()
 
     def _connect(self):
-        """Do not call this directly - call auto_connect(), which will call
-        connect() for you.
+        """Do not call this directly - call auto_connect() or connect(),
+        which will call _connect() for you.
 
-        Connects to the roaster and creates communication thread."""
+        Connects to the roaster and creates communication thread.
+        Raises a RoasterLokkupError exception if the hardware is not found.
+        """
+        # the following call raises a RoasterLookupException when the device
+        # is not found. It is
         port = utils.find_device('1A86:5523')
-        self._ser = serial.Serial(
-            port=port,
-            baudrate=9600,
-            bytesize=8,
-            parity='N',
-            stopbits=1.5,
-            timeout=0.25,
-            xonxoff=False,
-            rtscts=False,
-            dsrdtr=False)
+        # on some systems, after the device port is added to the device list,
+        # it can take up to 20 seconds after USB insertion for
+        # the port to become available... (!)
+        # let's put a safety timeout in here as a precaution
+        wait_timeout = time.time() + 40.0  # should be PLENTY of time!
+        # let's update the _connect_state while we're at it...
+        self._connect_state.value = self.CS_CONNECTING
+        connect_success = False
+        while time.time() < wait_timeout:
+            try:
+                self._ser = serial.Serial(
+                    port=port,
+                    baudrate=9600,
+                    bytesize=8,
+                    parity='N',
+                    stopbits=1.5,
+                    timeout=0.25,
+                    xonxoff=False,
+                    rtscts=False,
+                    dsrdtr=False)
+                connect_success = True
+                break
+            except serial.SerialException:
+                time.sleep(0.5)
+        if not connect_success:
+            # timeout on attempts
+            raise exceptions.RoasterLookupError
 
         self._initialize()
 
@@ -383,8 +465,6 @@ class freshroastsr700(object):
             success = True
         except serial.serialutil.SerialException:
             logging.error('caught serial exception writing')
-            self._ser.close()
-            self.auto_connect()
         return success
 
     def _read_from_device(self):
@@ -419,12 +499,39 @@ class freshroastsr700(object):
                         continue
         return existing_recipe
 
+    def connect(self):
+        """Attempt to connect to hardware immediately.  Will not retry.
+        Check freshroastsr700.connected or freshroastsr700.connect_state
+        to verify result.
+        Raises:
+            freshroastsr700.exeptions.RoasterLookupError
+                No hardware connected to the computer.
+        """
+        self._start_connect(self.CA_SINGLE_SHOT)
+        while(self._connect_state.value == self.CS_ATTEMPTING_CONNECT or
+              self._connect_state.value == self.CS_CONNECTING):
+            time.sleep(0.1)
+        if self.CS_CONNECTED != self._connect_state.value:
+            raise exceptions.RoasterLookupError
+
     def auto_connect(self):
         """Starts a thread that will automatically connect to the roaster when
         it is plugged in."""
+        self._start_connect(self.CA_AUTO)
+
+    def _start_connect(self, connect_type):
+        """Starts the connection process, as called (internally)
+        from the user context, either from auto_connect() or connect().
+        Never call this from the _comm() process context.
+        """
+        if self._connect_state.value != self.CS_NOT_CONNECTED:
+            # already done or in process, assume success
+            return
+
         self._connected.value = 0
+        self._connect_state.value = self.CS_ATTEMPTING_CONNECT
         # tell comm process to attempt connection
-        self._attempting_connect.value = 1
+        self._attempting_connect.value = connect_type
 
         # EXTREMELY IMPORTANT - for this to work at all in Windows,
         # where the above processes are spawned (vs forked in Unix),
@@ -445,19 +552,29 @@ class freshroastsr700(object):
 
     def _auto_connect(self):
         """Attempts to connect to the roaster every quarter of a second."""
-        while(self._cont.value):
+        while not self._teardown.value:
             try:
                 self._connect()
-                self._connected.value = 1
-                break
+                return True
             except exceptions.RoasterLookupError:
                 time.sleep(.25)
+        return False
 
     def disconnect(self):
         """Stops the communication loop to the roaster. Note that this will not
-        actually stop the roaster itself, but will allow the program to exit
-        cleanly."""
-        self._cont.value = 0
+        actually stop the roaster itself."""
+        self._disconnect.value = 1
+
+    def terminate(self):
+        """Stops the communication loop to the roaster and closes down all
+        communication processes. Note that this will not
+        actually stop the roaster itself.
+        You will need to instantiate a new freshroastsr700 object after
+        calling this function, in order to re-start communications with
+        the hardware.
+        """
+        self.disconnect()
+        self._teardown.value = 1
 
     def _comm(self, thermostat=False,
               kp=0.06, ki=0.0075, kd=0.01,
@@ -491,85 +608,156 @@ class freshroastsr700(object):
         Returns:
             nothing
         """
-        # waiting for command to attempt connect
-        while self._attempting_connect.value == 0:
-            time.sleep(0.25)
-        # we got the command to attempt to connect
-        # reset flag
-        self._attempting_connect.value = 0
-        # attempt connection
-        # this call will block until a connection is achieved
-        self._auto_connect()
+        # since this process is started with daemon=True, it should exit
+        # when the owning process terminates. Therefore, safe to loop forever.
+        while not self._teardown.value:
 
-        # we are connected!
+            # waiting for command to attempt connect
+            # print( "waiting for command to attempt connect")
+            while self._attempting_connect.value == self.CA_NONE:
+                time.sleep(0.25)
+                if self._teardown.value:
+                    break
+            # if we're tearing down, bail now.
+            if self._teardown.value:
+                break
 
-        # Initialize PID controller if thermostat function was specified at
-        # init time
-        pidc = None
-        heater = None
-        if(thermostat):
-            pidc = pid.PID(kp, ki, kd,
-                           Output_max=heater_segments,
-                           Output_min=0
-                           )
-            heater = heat_controller(number_of_segments=heater_segments)
+            # we got the command to attempt to connect
+            # change state to 'attempting_connect'
+            self._connect_state.value = self.CS_ATTEMPTING_CONNECT
+            # attempt connection
+            if self.CA_AUTO == self._attempting_connect.value:
+                # this call will block until a connection is achieved
+                # it will also set _connect_state to CS_CONNECTING
+                # if appropriate
+                if self._auto_connect():
+                    # when we unblock, it is an indication of a successful
+                    # connection
+                    self._connected.value = 1
+                    self._connect_state.value = self.CS_CONNECTED
+                else:
+                    # failure, normally due to a timeout
+                    self._connected.value = 0
+                    self._connect_state.value = self.CS_NOT_CONNECTED
+                    # we failed to connect - start over from the top
+                    # reset flag
+                    self._attempting_connect.value = self.CA_NONE
+                    continue
 
-        read_state = self.LOOKING_FOR_HEADER_1
-        r = []
-        while(self._cont.value):
-            start = datetime.datetime.now()
-            # write to device
-            if self._write_to_device() is False:
-                # TODO - if _write_to_device() really returns false,
-                # this codebase will spiral out of control.
-                # _write_to_device() being false means a write exception
-                # has occurred, and this code is now
-                # attempting to spawn a thread using _auto_connect()
-                # from here (we're in a child process...),
-                # which attempts to spawn another copy of
-                # this process.  Needs review.
-                logging.error('comm - _write_to_device() failed, expect chaos')
+            elif self.CA_SINGLE_SHOT == self._attempting_connect.value:
+                # try once, now, if failure, start teh big loop over
+                try:
+                    self._connect()
+                    self._connected.value = 1
+                    self._connect_state.value = self.CS_CONNECTED
+                except exceptions.RoasterLookupError:
+                    self._connected.value = 0
+                    self._connect_state.value = self.CS_NOT_CONNECTED
+                if self._connect_state.value != self.CS_CONNECTED:
+                    # we failed to connect - start over from the top
+                    # reset flag
+                    self._attempting_connect.value = self.CA_NONE
+                    continue
+            else:
+                # shouldn't be here
+                # reset flag
+                self._attempting_connect.value = self.CA_NONE
                 continue
 
-            # read from device
-            while self._ser.in_waiting:
-                _byte = self._ser.read(1)
-                read_state, r, err = (
-                    self._process_reponse_byte(
-                        read_state, _byte, r, update_data_event))
+            # We are connected!
+            # print( "We are connected!")
+            # reset flag right away
+            self._attempting_connect.value = self.CA_NONE
 
-            # next, PID controller calcs when roasting.
-            if thermostat:
-                if 'roasting' == self.get_roaster_state():
-                    if heater.about_to_rollover():
-                        # it's time to use the PID controller value
-                        # and set new output level on heater!
-                        output = pidc.update(
-                            self.current_temp, self.target_temp)
-                        heater.heat_level = output
+            # Initialize PID controller if thermostat function was specified at
+            # init time
+            pidc = None
+            heater = None
+            if(thermostat):
+                pidc = pid.PID(kp, ki, kd,
+                               Output_max=heater_segments,
+                               Output_min=0
+                               )
+                heater = heat_controller(number_of_segments=heater_segments)
+
+            read_state = self.LOOKING_FOR_HEADER_1
+            r = []
+            write_errors = 0
+            read_errors = 0
+            while not self._disconnect.value:
+                start = datetime.datetime.now()
+                # write to device
+                if not self._write_to_device():
+                    logging.error('comm - _write_to_device() failed!')
+                    write_errors += 1
+                    if write_errors > 3:
+                        # it's time to consider the device as being "gone"
+                        logging.error('comm - 3 successive write '
+                                      'failures, disconnecting.')
+                        self._disconnect.value = 1
+                        continue
+                else:
+                    # reset write_errors
+                    write_errors = 0
+
+                # read from device
+                try:
+                    while self._ser.in_waiting:
+                        _byte = self._ser.read(1)
+                        read_state, r, err = (
+                            self._process_reponse_byte(
+                                read_state, _byte, r, update_data_event))
+                except IOError:
+                    # typically happens when device is suddenly unplugged
+                    logging.error('comm - read from device failed!')
+                    read_errors += 1
+                    if write_errors > 3:
+                        # it's time to consider the device as being "gone"
+                        logging.error('comm - 3 successive read '
+                                      'failures, disconnecting.')
+                        self._disconnect.value = 1
+                        continue
+                else:
+                    read_errors = 0
+
+                # next, PID controller calcs when roasting.
+                if thermostat:
+                    if 'roasting' == self.get_roaster_state():
+                        if heater.about_to_rollover():
+                            # it's time to use the PID controller value
+                            # and set new output level on heater!
+                            output = pidc.update(
+                                self.current_temp, self.target_temp)
+                            heater.heat_level = output
+                            # make this number visible to other processes...
+                            self._heater_level.value = heater.heat_level
+                        # read bang-bang heater output array element & apply it
+                        if heater.generate_bangbang_output():
+                            # ON
+                            self.heat_setting = 3
+                        else:
+                            # OFF
+                            self.heat_setting = 0
+                    else:
+                        # for all other states, heat_level = OFF
+                        heater.heat_level = 0
                         # make this number visible to other processes...
                         self._heater_level.value = heater.heat_level
-                    # read bang-bang heater output array element and apply it
-                    if heater.generate_bangbang_output():
-                        # ON
-                        self.heat_setting = 3
-                    else:
-                        # OFF
                         self.heat_setting = 0
-                else:
-                    # for all other states, heat_level = OFF
-                    heater.heat_level = 0
-                    # make this number visible to other processes...
-                    self._heater_level.value = heater.heat_level
-                    self.heat_setting = 0
 
-            # calculate sleep time to stick to 0.25sec period
-            comp_time = datetime.datetime.now() - start
-            sleep_duration = 0.25 - comp_time.total_seconds()
-            if sleep_duration > 0:
-                time.sleep(sleep_duration)
+                # calculate sleep time to stick to 0.25sec period
+                comp_time = datetime.datetime.now() - start
+                sleep_duration = 0.25 - comp_time.total_seconds()
+                if sleep_duration > 0:
+                    time.sleep(sleep_duration)
 
-        self._ser.close()
+            self._ser.close()
+            # reset disconnect flag
+            self._disconnect.value = 0
+            # reset connection values
+            self._connected.value = 0
+            self._connect_state.value = self.CS_NOT_CONNECTED
+            # print("We are disconnected.")
 
     def _process_reponse_byte(self, read_state, _byte, r, update_data_event):
         err = False
@@ -648,7 +836,7 @@ class freshroastsr700(object):
         cooling. If the time remaining reaches zero, the roaster will call the
         supplied state transistion function or the roaster will be set to
         the idle state."""
-        while(self._cont.value):
+        while not self._teardown.value:
             state = self.get_roaster_state()
             if(state == 'roasting' or state == 'cooling'):
                 time.sleep(1)

@@ -103,7 +103,7 @@ class TestFreshroastsr700(unittest.TestCase):
 
     def test_disconnect(self):
         self.roaster.disconnect()
-        self.assertFalse(self.roaster._cont.value)
+        self.assertTrue(self.roaster._disconnect.value)
 
     def test_get_roaster_state_roasting(self):
         self.roaster._current_state.value = b'\x04\x02'
