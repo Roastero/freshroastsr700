@@ -1,12 +1,18 @@
 Release Notes
 =============
 
-Version 0.2.2 - May 2017
+Version 0.2.3 - May 2017
 ------------------------
-Resolves issues #22, 23, 24 and 25.  Added logic to handle hardware
+Resolves issues #22, 23, 24 and 25, and 29 (the latter introduced by
+0.2.2).  Added logic to handle hardware
 connects and hardware disconnects properly in all supported OSes.  Software
 now supports multiple connect()-disconnect() cycles using the same
-freshroastsrs700 object instance.
+freshroastsrs700 object instance. Tested in Windows 10 64-bit and
+Ubuntu 14.04.
+
+Version 0.2.2 - May 2017
+------------------------
+[Introduced issue #29. Inoperable in Windows environments - do not use.]
 
 Version 0.2.1 - March 2017
 --------------------------
