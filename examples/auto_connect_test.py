@@ -1,60 +1,64 @@
 import freshroastsr700
 import time
+import multiprocessing as mp
 
-roaster = freshroastsr700.freshroastsr700()
+if __name__ == "__main__":
+	mp.freeze_support()
 
-# test auto-connect...
-roaster.auto_connect()
+	roaster = freshroastsr700.freshroastsr700()
 
-wait_timeout = time.time() + 40.0
-while not roaster.connected:
-    if time.time() > wait_timeout:
-        print("Waited for a connection, didn't find one, bailing.")
-        exit()
-    print("Connection state is %s" % str(roaster.connect_state))
-    time.sleep(0.5)
+	# test auto-connect...
+	roaster.auto_connect()
 
-roaster.fan_speed = 3
-roaster.heat_setting = 1
-roaster.time_remaining = 10
-roaster.roast()
+	wait_timeout = time.time() + 40.0
+	while not roaster.connected:
+		if time.time() > wait_timeout:
+			print("Waited for a connection, didn't find one, bailing.")
+			exit()
+		print("Connection state is %s" % str(roaster.connect_state))
+		time.sleep(0.5)
 
-time.sleep(6.0)
+	roaster.fan_speed = 3
+	roaster.heat_setting = 1
+	roaster.time_remaining = 10
+	roaster.roast()
 
-roaster.fan_speed = 5
-roaster.heat_setting = 0
-roaster.time_remaining = 10
-roaster.cool()
+	time.sleep(6.0)
 
-time.sleep(6.0)
+	roaster.fan_speed = 5
+	roaster.heat_setting = 0
+	roaster.time_remaining = 10
+	roaster.cool()
 
-roaster.idle()
+	time.sleep(6.0)
 
-time.sleep(0.5)
+	roaster.idle()
 
-roaster.disconnect()
+	time.sleep(0.5)
 
-time.sleep(2.0)
+	roaster.disconnect()
 
-# test a re-connect after a successful session
-roaster.connect()
+	time.sleep(2.0)
 
-roaster.fan_speed = 7
-roaster.heat_setting = 1
-roaster.time_remaining = 10
-roaster.roast()
+	# test a re-connect after a successful session
+	roaster.connect()
 
-time.sleep(6.0)
+	roaster.fan_speed = 7
+	roaster.heat_setting = 1
+	roaster.time_remaining = 10
+	roaster.roast()
 
-roaster.fan_speed = 9
-roaster.heat_setting = 0
-roaster.time_remaining = 10
-roaster.cool()
+	time.sleep(6.0)
 
-time.sleep(6.0)
+	roaster.fan_speed = 9
+	roaster.heat_setting = 0
+	roaster.time_remaining = 10
+	roaster.cool()
 
-roaster.idle()
+	time.sleep(6.0)
 
-time.sleep(0.5)
+	roaster.idle()
 
-roaster.disconnect()
+	time.sleep(0.5)
+
+	roaster.disconnect()

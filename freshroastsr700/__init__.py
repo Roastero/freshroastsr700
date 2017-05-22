@@ -139,7 +139,7 @@ class freshroastsr700(object):
         # only create the thread.Event once - this is used to exit
         # the callback thread
         if not hasattr(self, 'update_data_callback_kill_event'):
-            self.update_data_callback_kill_event = threading.Event()
+            self.update_data_callback_kill_event = mp.Event()
         # destroy an existing thread if we had created one previously
         if(hasattr(self, 'update_data_thread') and
            self.update_data_thread is not None):
@@ -177,7 +177,7 @@ class freshroastsr700(object):
         # only create the thread.Event once - this is used to exit
         # the callback thread
         if not hasattr(self, 'state_transition_callback_kill_event'):
-            self.state_transition_callback_kill_event = threading.Event()
+            self.state_transition_callback_kill_event = mp.Event()
         # destroy an existing thread if we had created one previously
         if(hasattr(self, 'state_transition_thread') and
            self.state_transition_thread is not None):
