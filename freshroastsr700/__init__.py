@@ -34,6 +34,21 @@ class freshroastsr700(object):
         software PID control to hit the demanded target_temp. Defaults to
         False.
 
+        ext_sw_heater_drive (bool): enable direct control over the internal
+        heat_controller object.  Defaults to False. When set to True, the
+        thermostat field is IGNORED, and assumed to be False.  Direct
+        control over the software heater_level means that the freshroastsr700's
+        PID controller cannot control the heater.  Since thermostat and
+        ext_sw_heater_drive cannot be allowed to both be True, this arg
+        is given precedence over the thermostat arg.  Note that
+            (thermostat=False, ext_sw_heater_drive=False),
+            (thermostat=True, ext_sw_heater_drive=False),
+            (thermostat=False, ext_sw_heater_drive=True),
+        are all acceptable arg combinations. Only the
+            (thermostat=True, ext_sw_heater_drive=True),
+        cominbation is not allowed, and this software will set
+        thermostat=False in that case.
+
         kp (float): Kp value to use for PID control. Defaults to 0.06.
 
         ki (float): Ki value to use for PID control. Defaults to 0.0075.
@@ -42,13 +57,15 @@ class freshroastsr700(object):
 
         heater_segments (int): the pseudo-control range for the internal
         heat_controller object.  Defaults to 8.
+
     """
     def __init__(self,
                  update_data_func=None,
                  state_transition_func=None,
                  thermostat=False,
                  kp=0.06, ki=0.0075, kd=0.01,
-                 heater_segments=8):
+                 heater_segments=8,
+                 ext_sw_heater_drive=False):
         """Create variables used to send in packets to the roaster. The update
         data function is called when a packet is opened. The state transistion
         function is used by the timer thread to know what to do next. See wiki
@@ -91,7 +108,11 @@ class freshroastsr700(object):
         self._heater_level = sharedctypes.Value('i', 0)
         # the following vars are not process-safe, do not access them
         # from the comm or timer threads, nor from the callbacks.
-        self._thermostat = thermostat
+        self._ext_sw_heater_drive = ext_sw_heater_drive
+        if not self._ext_sw_heater_drive:
+            self._thermostat = thermostat
+        else:
+            self._thermostat = False
         self._pid_kp = kp
         self._pid_ki = ki
         self._pid_kd = kd
@@ -112,6 +133,7 @@ class freshroastsr700(object):
                 self._pid_ki,
                 self._pid_kd,
                 self._heater_bangbang_segments,
+                self._ext_sw_heater_drive,
                 self.update_data_event,))
         self.comm_process.daemon = True
         self.comm_process.start()
@@ -318,11 +340,26 @@ class freshroastsr700(object):
 
     @property
     def heater_level(self):
-        """A getter method for _heater_level. Only used when
-           thermostat=True.  Driven by built-in PID controller.
+        """A getter method for _heater_level.
+           When thermostat=True, value is driven by built-in PID controller.
+           When ext_sw_heater_drive=True, value is driven by calls to
+           heater_level().
            Min will always be zero, max will be heater_segments
            (optional instantiation parameter, defaults to 8)."""
         return self._heater_level.value
+
+    @heater_level.setter
+    def heater_level(self, value):
+        """Verifies that the heater_level is between 0 and heater_segments.
+           Can only be called when freshroastsr700 object is initialized
+           with ext_sw_heater_drive=True. Will throw RoasterValueError
+           otherwise."""
+        if self._ext_sw_heater_drive:
+            if value not in range(0, self._heater_bangbang_segments+1):
+                raise exceptions.RoasterValueError
+            self._heater_level.value = value
+        else:
+            raise exceptions.RoasterValueError
 
     @property
     def connected(self):
@@ -578,7 +615,8 @@ class freshroastsr700(object):
 
     def _comm(self, thermostat=False,
               kp=0.06, ki=0.0075, kd=0.01,
-              heater_segments=8, update_data_event=None):
+              heater_segments=8, ext_sw_heater_drive=False,
+              update_data_event=None):
         """Do not call this directly - call auto_connect(), which will spawn
         comm() for you.
 
@@ -591,6 +629,14 @@ class freshroastsr700(object):
             if set to True, turns on thermostat mode.  In thermostat
             mode, freshroastsr700 takes control of heat_setting and does
             software PID control to hit the demanded target_temp.
+
+            ext_sw_heater_drive (bool): enable direct control over the internal
+            heat_controller object.  Defaults to False. When set to True, the
+            thermostat field is IGNORED, and assumed to be False.  Direct
+            control over the software heater_level means that the
+            PID controller cannot control the heater.  Since thermostat and
+            ext_sw_heater_drive cannot be allowed to both be True, this arg
+            is given precedence over the thermostat arg.
 
             kp (float): Kp value to use for PID control. Defaults to 0.06.
 
@@ -678,6 +724,7 @@ class freshroastsr700(object):
                                Output_max=heater_segments,
                                Output_min=0
                                )
+            if thermostat or ext_sw_heater_drive:
                 heater = heat_controller(number_of_segments=heater_segments)
 
             read_state = self.LOOKING_FOR_HEADER_1
@@ -720,17 +767,25 @@ class freshroastsr700(object):
                 else:
                     read_errors = 0
 
-                # next, PID controller calcs when roasting.
-                if thermostat:
+                # next, drive SW heater when using
+                # thermostat mode (PID controller calcs)
+                # or in external sw heater drive mode,
+                # when roasting.
+                if thermostat or ext_sw_heater_drive:
                     if 'roasting' == self.get_roaster_state():
                         if heater.about_to_rollover():
                             # it's time to use the PID controller value
                             # and set new output level on heater!
-                            output = pidc.update(
-                                self.current_temp, self.target_temp)
-                            heater.heat_level = output
-                            # make this number visible to other processes...
-                            self._heater_level.value = heater.heat_level
+                            if ext_sw_heater_drive:
+                                # read user-supplied value
+                                heater.heat_level = self._heater_level.value
+                            else:
+                                # thermostat
+                                output = pidc.update(
+                                    self.current_temp, self.target_temp)
+                                heater.heat_level = output
+                                # make this number visible to other processes...
+                                self._heater_level.value = heater.heat_level
                         # read bang-bang heater output array element & apply it
                         if heater.generate_bangbang_output():
                             # ON
