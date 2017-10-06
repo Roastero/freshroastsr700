@@ -64,6 +64,12 @@ Please note that on OS X and Windows systems, you will need to install te ChiHen
 
 Version History
 ===============
+Version 0.2.4 - Oct 2017
+------------------------
+ - Resolves feature request documented in issue #31
+   freshroastsr700 object can now be instantiated with manual control
+   of the software-based heater algorithm.  Tested in Ubuntu 16.04.
+
 Version 0.2.3 - May 2017
 ------------------------
  - Resolves issues #22, 23, 24 and 25, and 29 (the latter introduced by
