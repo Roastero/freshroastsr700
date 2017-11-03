@@ -3,8 +3,9 @@ FreshRoastSR700
 ===============
 .. image:: https://travis-ci.org/Roastero/freshroastsr700.svg?branch=master
     :target: https://travis-ci.org/Roastero/freshroastsr700
-.. image:: https://coveralls.io/repos/Roastero/freshroastsr700/badge.svg?branch=master&service=github
-    :target: https://coveralls.io/github/Roastero/freshroastsr700?branch=master
+.. image:: https://api.codeclimate.com/v1/badges/710d27c6a396392ce7d8/maintainability
+   :target: https://codeclimate.com/github/Roastero/freshroastsr700/maintainability
+   :alt: Maintainability
 .. image:: https://readthedocs.org/projects/freshroastsr700/badge/?version=latest
     :target: http://freshroastsr700.readthedocs.org/en/latest/?badge=latest
     :alt: Documentation Status

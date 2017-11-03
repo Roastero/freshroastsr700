@@ -1,14 +1,24 @@
 language: python
 
+env:
+  global:
+    - CC_TEST_REPORTER_ID=2019d8b20170498c2c6933ed6871afc0cfd324a6a2a5a50141eadeb18825dff6
+
 before_install:
   # work around https://github.com/travis-ci/travis-ci/issues/8363
   - pyenv global system 3.5
+  - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+  - chmod +x ./cc-test-reporter
+  - ./cc-test-reporter before-build
 
 install:
   - pip install -r test-requirements.txt
 
 script:
   - tox
+
+after_script:
+  - ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT
 
 deploy:
   provider: pypi
