@@ -104,6 +104,8 @@ class freshroastsr700(object):
         self._disconnect = sharedctypes.Value('i', 0)
         self._teardown = sharedctypes.Value('i', 0)
 
+        self._cooling_for_pid_control = False
+
         # for SW PWM heater setting
         self._heater_level = sharedctypes.Value('i', 0)
         # the following vars are not process-safe, do not access them
@@ -772,7 +774,7 @@ class freshroastsr700(object):
                 # or in external sw heater drive mode,
                 # when roasting.
                 if thermostat or ext_sw_heater_drive:
-                    if 'roasting' == self.get_roaster_state():
+                    if ('roasting' == self.get_roaster_state() or self._cooling_for_pid_control):
                         if heater.about_to_rollover():
                             # it's time to use the PID controller value
                             # and set new output level on heater!
@@ -790,9 +792,12 @@ class freshroastsr700(object):
                         if heater.generate_bangbang_output():
                             # ON
                             self.heat_setting = 3
+                            self.roast()
                         else:
                             # OFF
                             self.heat_setting = 0
+                            self._cooling_for_pid_control = True
+                            self.cool()
                     else:
                         # for all other states, heat_level = OFF
                         heater.heat_level = 0
@@ -958,6 +963,7 @@ class freshroastsr700(object):
     def roast(self):
         """Sets the current state of the roaster to roast and begins
         roasting."""
+        self._cooling_for_pid_control = False
         self._current_state.value = b'\x04\x02'
 
     def cool(self):
