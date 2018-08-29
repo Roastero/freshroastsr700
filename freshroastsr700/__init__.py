@@ -796,8 +796,7 @@ class freshroastsr700(object):
                         else:
                             # OFF
                             self.heat_setting = 0
-                            self._cooling_for_pid_control = True
-                            self.cool()
+                            self.cool(True)
                     else:
                         # for all other states, heat_level = OFF
                         heater.heat_level = 0
@@ -927,7 +926,10 @@ class freshroastsr700(object):
         if(value == b'\x02\x01'):
             return 'idle'
         elif(value == b'\x04\x04'):
-            return 'cooling'
+            if self._cooling_for_pid_control:
+                return 'roasting'
+            else:
+                return 'cooling'
         elif(value == b'\x08\x01'):
             return 'sleeping'
         # handle null bytes as empty strings
@@ -958,6 +960,7 @@ class freshroastsr700(object):
 
     def idle(self):
         """Sets the current state of the roaster to idle."""
+        self._cooling_for_pid_control = False
         self._current_state.value = b'\x02\x01'
 
     def roast(self):
@@ -966,16 +969,18 @@ class freshroastsr700(object):
         self._cooling_for_pid_control = False
         self._current_state.value = b'\x04\x02'
 
-    def cool(self):
+    def cool(self, cool_for_pid_control=False):
         """Sets the current state of the roaster to cool. The roaster expects
         that cool will be run after roast, and will not work as expected if ran
         before."""
+        self._cooling_for_pid_control = cool_for_pid_control
         self._current_state.value = b'\x04\x04'
 
     def sleep(self):
         """Sets the current state of the roaster to sleep. Different than idle
         in that this will set double dashes on the roaster display rather than
         digits."""
+        self._cooling_for_pid_control = False
         self._current_state.value = b'\x08\x01'
 
 
