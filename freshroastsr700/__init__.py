@@ -104,6 +104,8 @@ class freshroastsr700(object):
         self._disconnect = sharedctypes.Value('i', 0)
         self._teardown = sharedctypes.Value('i', 0)
 
+        self._cooling_for_pid_control = False
+
         # for SW PWM heater setting
         self._heater_level = sharedctypes.Value('i', 0)
         # the following vars are not process-safe, do not access them
@@ -772,7 +774,7 @@ class freshroastsr700(object):
                 # or in external sw heater drive mode,
                 # when roasting.
                 if thermostat or ext_sw_heater_drive:
-                    if 'roasting' == self.get_roaster_state():
+                    if ('roasting' == self.get_roaster_state() or self._cooling_for_pid_control):
                         if heater.about_to_rollover():
                             # it's time to use the PID controller value
                             # and set new output level on heater!
@@ -790,9 +792,11 @@ class freshroastsr700(object):
                         if heater.generate_bangbang_output():
                             # ON
                             self.heat_setting = 3
+                            self.roast()
                         else:
                             # OFF
                             self.heat_setting = 0
+                            self.cool(True)
                     else:
                         # for all other states, heat_level = OFF
                         heater.heat_level = 0
@@ -922,7 +926,10 @@ class freshroastsr700(object):
         if(value == b'\x02\x01'):
             return 'idle'
         elif(value == b'\x04\x04'):
-            return 'cooling'
+            if self._cooling_for_pid_control:
+                return 'roasting'
+            else:
+                return 'cooling'
         elif(value == b'\x08\x01'):
             return 'sleeping'
         # handle null bytes as empty strings
@@ -953,23 +960,27 @@ class freshroastsr700(object):
 
     def idle(self):
         """Sets the current state of the roaster to idle."""
+        self._cooling_for_pid_control = False
         self._current_state.value = b'\x02\x01'
 
     def roast(self):
         """Sets the current state of the roaster to roast and begins
         roasting."""
+        self._cooling_for_pid_control = False
         self._current_state.value = b'\x04\x02'
 
-    def cool(self):
+    def cool(self, cool_for_pid_control=False):
         """Sets the current state of the roaster to cool. The roaster expects
         that cool will be run after roast, and will not work as expected if ran
         before."""
+        self._cooling_for_pid_control = cool_for_pid_control
         self._current_state.value = b'\x04\x04'
 
     def sleep(self):
         """Sets the current state of the roaster to sleep. Different than idle
         in that this will set double dashes on the roaster display rather than
         digits."""
+        self._cooling_for_pid_control = False
         self._current_state.value = b'\x08\x01'
 
 
